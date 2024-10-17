@@ -18,10 +18,13 @@ namespace VideoCore {
 
 struct ImageViewInfo {
     ImageViewInfo() = default;
-    ImageViewInfo(const AmdGpu::Image& image, const Shader::ImageResource& desc, u32 multisample_target = 0) noexcept;
-    ImageViewInfo(const AmdGpu::Liverpool::ColorBuffer& col_buffer, bool is_vo_surface, u32 multisample_target = 0) noexcept;
+    ImageViewInfo(const AmdGpu::Image& image, const Shader::ImageResource& desc,
+                  u32 multisample_target = 0) noexcept;
+    ImageViewInfo(const AmdGpu::Liverpool::ColorBuffer& col_buffer, bool is_vo_surface,
+                  u32 multisample_target = 0) noexcept;
     ImageViewInfo(const AmdGpu::Liverpool::DepthBuffer& depth_buffer,
-                  AmdGpu::Liverpool::DepthView view, AmdGpu::Liverpool::DepthControl ctl, u32 multisample_target = 0);
+                  AmdGpu::Liverpool::DepthView view, AmdGpu::Liverpool::DepthControl ctl,
+                  u32 multisample_target = 0);
 
     vk::ImageViewType type = vk::ImageViewType::e2D;
     vk::Format format = vk::Format::eR8G8B8A8Unorm;

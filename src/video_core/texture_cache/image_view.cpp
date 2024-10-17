@@ -67,7 +67,8 @@ vk::Format TrySwizzleFormat(vk::Format format, u32 dst_sel) {
     return format;
 }
 
-ImageViewInfo::ImageViewInfo(const AmdGpu::Image& image, const Shader::ImageResource& desc, u32 multisample_target) noexcept
+ImageViewInfo::ImageViewInfo(const AmdGpu::Image& image, const Shader::ImageResource& desc,
+                             u32 multisample_target) noexcept
     : is_storage{desc.is_storage}, multisample_target{multisample_target} {
     const auto dfmt = image.GetDataFmt();
     auto nfmt = image.GetNumberFmt();
@@ -120,8 +121,9 @@ ImageViewInfo::ImageViewInfo(const AmdGpu::Image& image, const Shader::ImageReso
     }
 }
 
-ImageViewInfo::ImageViewInfo(const AmdGpu::Liverpool::ColorBuffer& col_buffer,
-                             bool is_vo_surface, u32 multisample_target) noexcept : multisample_target{multisample_target} {
+ImageViewInfo::ImageViewInfo(const AmdGpu::Liverpool::ColorBuffer& col_buffer, bool is_vo_surface,
+                             u32 multisample_target) noexcept
+    : multisample_target{multisample_target} {
     const auto base_format =
         Vulkan::LiverpoolToVK::SurfaceFormat(col_buffer.info.format, col_buffer.NumFormat());
     range.base.layer = col_buffer.view.slice_start;
@@ -131,8 +133,9 @@ ImageViewInfo::ImageViewInfo(const AmdGpu::Liverpool::ColorBuffer& col_buffer,
 }
 
 ImageViewInfo::ImageViewInfo(const AmdGpu::Liverpool::DepthBuffer& depth_buffer,
-                             AmdGpu::Liverpool::DepthView view,
-                             AmdGpu::Liverpool::DepthControl ctl, u32 multisample_target) : multisample_target{multisample_target} {
+                             AmdGpu::Liverpool::DepthView view, AmdGpu::Liverpool::DepthControl ctl,
+                             u32 multisample_target)
+    : multisample_target{multisample_target} {
     format = Vulkan::LiverpoolToVK::DepthFormat(depth_buffer.z_info.format,
                                                 depth_buffer.stencil_info.format);
     is_storage = ctl.depth_write_enable;
