@@ -158,12 +158,10 @@ Image::Image(const Vulkan::Instance& instance_, Vulkan::Scheduler& scheduler_,
         break;
     }
 
-    Create(image);
+    Create(image, info.num_samples, vk::ImageLayout::eUndefined);
 }
 
-void Image::Create(UniqueImage& image, u32 sample_count) {
-    bool multisample_target = sample_count != std::numeric_limits<u32>::max();
-
+void Image::Create(UniqueImage& image, u32 sample_count, vk::ImageLayout layout) {
     // Here we force `eExtendedUsage` as don't know all image usage cases beforehand. In normal case
     // the texture cache should re-create the resource with the usage requested
     vk::ImageCreateFlags flags{vk::ImageCreateFlagBits::eMutableFormat |
@@ -182,12 +180,6 @@ void Image::Create(UniqueImage& image, u32 sample_count) {
                                        ? properties.value.sampleCounts
                                        : vk::SampleCountFlagBits::e1;
 
-    vk::ImageLayout layout = vk::ImageLayout::eUndefined;
-    if (multisample_target) {
-        layout = info.IsDepthStencil() ? vk::ImageLayout::eDepthStencilAttachmentOptimal
-                                       : vk::ImageLayout::eColorAttachmentOptimal;
-    }
-
     const vk::ImageCreateInfo image_ci = {
         .flags = flags,
         .imageType = info.type,
@@ -199,8 +191,7 @@ void Image::Create(UniqueImage& image, u32 sample_count) {
         },
         .mipLevels = static_cast<u32>(info.resources.levels),
         .arrayLayers = static_cast<u32>(info.resources.layers),
-        .samples = LiverpoolToVK::NumSamples(multisample_target ? sample_count : info.num_samples,
-                                             supported_samples),
+        .samples = LiverpoolToVK::NumSamples(sample_count, supported_samples),
         .tiling = tiling,
         .usage = usage,
         .initialLayout = layout,
@@ -208,16 +199,9 @@ void Image::Create(UniqueImage& image, u32 sample_count) {
 
     image.Create(image_ci);
 
-    const char* name_format;
-
-    if (multisample_target) {
-        name_format = "Multisample Target {}x{}x{} {:#x}:{:#x}";
-    } else {
-        name_format = "Image {}x{}x{} {:#x}:{:#x}";
-    }
-
-    Vulkan::SetObjectName(instance->GetDevice(), (vk::Image)image, name_format, info.size.width,
-                          info.size.height, info.size.depth, info.guest_address,
+    Vulkan::SetObjectName(instance->GetDevice(), (vk::Image)image,
+                          "Multisample Target {}x{}x{} {} samples {:#x}:{:#x}", info.size.width,
+                          info.size.height, info.size.depth, sample_count, info.guest_address,
                           info.guest_size_bytes);
 }
 
@@ -396,7 +380,9 @@ const UniqueImage& Image::GetMultisampleTarget(u32 sample) {
     if (!multisample_targets[index]) {
         multisample_targets[index] =
             std::move(UniqueImage{instance->GetDevice(), instance->GetAllocator()});
-        Create(multisample_targets[index], sample);
+        Create(multisample_targets[index], sample,
+               info.IsDepthStencil() ? vk::ImageLayout::eDepthStencilAttachmentOptimal
+                                     : vk::ImageLayout::eColorAttachmentOptimal);
     }
 
     return multisample_targets[index];

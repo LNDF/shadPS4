@@ -88,7 +88,7 @@ struct Image {
     Image(Image&&) = default;
     Image& operator=(Image&&) = default;
 
-    void Create(UniqueImage& image, u32 sample_count = std::numeric_limits<u32>::max());
+    void Create(UniqueImage& image, u32 sample_count, vk::ImageLayout layout);
 
     [[nodiscard]] bool Overlaps(VAddr overlap_cpu_addr, size_t overlap_size) const noexcept {
         const VAddr overlap_end = overlap_cpu_addr + overlap_size;
