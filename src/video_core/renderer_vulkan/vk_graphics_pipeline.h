@@ -81,6 +81,16 @@ public:
         return key.mrt_mask;
     }
 
+    u32 GetNumSamples() const {
+        return key.num_samples;
+    }
+
+    [[nodiscard]] bool IsDepthBoundsEnabled() const {
+        return key.depth_stencil.depth_bounds_enable;
+    }
+
+    [[nodiscard]]
+
     bool IsDepthEnabled() const {
         return key.depth_stencil.depth_enable.Value();
     }

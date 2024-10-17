@@ -213,8 +213,7 @@ void Rasterizer::BeginRendering(const GraphicsPipeline& pipeline) {
         state.height = std::min<u32>(state.height, image.info.size.height);
 
         const bool is_clear = texture_cache.IsMetaCleared(col_buf.CmaskAddress());
-        state.color_attachments[state.num_color_attachments++] = {
-            .imageView = *image_view.image_view,
+        state.color_attachments[state.num_color_attachments] = {
             .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
             .loadOp = is_clear ? vk::AttachmentLoadOp::eClear : vk::AttachmentLoadOp::eLoad,
             .storeOp = vk::AttachmentStoreOp::eStore,
@@ -222,6 +221,20 @@ void Rasterizer::BeginRendering(const GraphicsPipeline& pipeline) {
                 is_clear ? LiverpoolToVK::ColorBufferClearValue(col_buf) : vk::ClearValue{},
         };
         texture_cache.TouchMeta(col_buf.CmaskAddress(), false);
+
+        if (pipeline.GetNumSamples() != image_info.num_samples) {
+            VideoCore::ImageViewInfo multisampled_view_info{col_buf, false,
+                                                            pipeline.GetNumSamples()};
+            const auto& multisampled_image_view =
+                texture_cache.FindRenderTarget(image_info, multisampled_view_info);
+            state.color_attachments[state.num_color_attachments].imageView =
+                *multisampled_image_view.image_view;
+            state.color_attachments[state.num_color_attachments++].resolveImageView =
+                *image_view.image_view;
+        } else {
+            state.color_attachments[state.num_color_attachments++].imageView =
+                *image_view.image_view;
+        }
     }
 
     using ZFormat = AmdGpu::Liverpool::DepthBuffer::ZFormat;
