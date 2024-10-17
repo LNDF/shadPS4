@@ -9,6 +9,7 @@
 #include "video_core/texture_cache/image_info.h"
 #include "video_core/texture_cache/image_view.h"
 
+#include <array>
 #include <optional>
 
 namespace Vulkan {
@@ -36,6 +37,7 @@ enum ImageFlagBits : u32 {
 DECLARE_ENUM_FLAG_OPERATORS(ImageFlagBits)
 
 struct UniqueImage {
+    UniqueImage() = default;
     explicit UniqueImage(vk::Device device, VmaAllocator allocator);
     ~UniqueImage();
 
@@ -59,10 +61,18 @@ struct UniqueImage {
         return image;
     }
 
+    operator bool() const {
+        return image != nullptr;
+    }
+
+    bool operator==(std::nullptr_t) const {
+        return image == nullptr;
+    }
+
 private:
-    vk::Device device;
-    VmaAllocator allocator;
-    VmaAllocation allocation;
+    vk::Device device{};
+    VmaAllocator allocator{};
+    VmaAllocation allocation{};
     vk::Image image{};
 };
 
@@ -77,6 +87,8 @@ struct Image {
 
     Image(Image&&) = default;
     Image& operator=(Image&&) = default;
+
+    void Create(UniqueImage& image, u32 sample_count = std::numeric_limits<u32>::max());
 
     [[nodiscard]] bool Overlaps(VAddr overlap_cpu_addr, size_t overlap_size) const noexcept {
         const VAddr overlap_end = overlap_cpu_addr + overlap_size;
@@ -98,6 +110,8 @@ struct Image {
                  std::optional<SubresourceRange> range, vk::CommandBuffer cmdbuf = {});
     void Upload(vk::Buffer buffer, u64 offset);
 
+    const UniqueImage& GetMultisampleTarget(u32 sample);
+
     void CopyImage(const Image& image);
     void CopyMip(const Image& image, u32 mip);
 
@@ -109,6 +123,7 @@ struct Image {
     ImageFlagBits flags = ImageFlagBits::Dirty;
     VAddr cpu_addr = 0;
     VAddr cpu_addr_end = 0;
+    std::array<UniqueImage, 4> multisample_targets;
     std::vector<ImageViewInfo> image_view_infos;
     std::vector<ImageViewId> image_view_ids;
 

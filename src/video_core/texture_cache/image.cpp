@@ -139,15 +139,6 @@ Image::Image(const Vulkan::Instance& instance_, Vulkan::Scheduler& scheduler_,
       cpu_addr_end{cpu_addr + info.guest_size_bytes} {
     mip_hashes.resize(info.resources.levels);
     ASSERT(info.pixel_format != vk::Format::eUndefined);
-    // Here we force `eExtendedUsage` as don't know all image usage cases beforehand. In normal case
-    // the texture cache should re-create the resource with the usage requested
-    vk::ImageCreateFlags flags{vk::ImageCreateFlagBits::eMutableFormat |
-                               vk::ImageCreateFlagBits::eExtendedUsage};
-    if (info.props.is_cube || (info.type == vk::ImageType::e2D && info.resources.layers >= 6)) {
-        flags |= vk::ImageCreateFlagBits::eCubeCompatible;
-    } else if (info.props.is_volume) {
-        flags |= vk::ImageCreateFlagBits::e2DArrayCompatible;
-    }
 
     usage = ImageUsageFlags(info);
     format_features = FormatFeatureFlags(usage);
@@ -167,6 +158,22 @@ Image::Image(const Vulkan::Instance& instance_, Vulkan::Scheduler& scheduler_,
         break;
     }
 
+    Create(image);
+}
+
+void Image::Create(UniqueImage& image, u32 sample_count) {
+    bool multisample_target = sample_count != std::numeric_limits<u32>::max();
+
+    // Here we force `eExtendedUsage` as don't know all image usage cases beforehand. In normal case
+    // the texture cache should re-create the resource with the usage requested
+    vk::ImageCreateFlags flags{vk::ImageCreateFlagBits::eMutableFormat |
+                               vk::ImageCreateFlagBits::eExtendedUsage};
+    if (info.props.is_cube || (info.type == vk::ImageType::e2D && info.resources.layers >= 6)) {
+        flags |= vk::ImageCreateFlagBits::eCubeCompatible;
+    } else if (info.props.is_volume) {
+        flags |= vk::ImageCreateFlagBits::e2DArrayCompatible;
+    }
+
     constexpr auto tiling = vk::ImageTiling::eOptimal;
     const auto supported_format = instance->GetSupportedFormat(info.pixel_format, format_features);
     const auto properties = instance->GetPhysicalDevice().getImageFormatProperties(
@@ -174,6 +181,12 @@ Image::Image(const Vulkan::Instance& instance_, Vulkan::Scheduler& scheduler_,
     const auto supported_samples = properties.result == vk::Result::eSuccess
                                        ? properties.value.sampleCounts
                                        : vk::SampleCountFlagBits::e1;
+
+    vk::ImageLayout layout = vk::ImageLayout::eUndefined;
+    if (multisample_target) {
+        layout = info.IsDepthStencil() ? vk::ImageLayout::eDepthStencilAttachmentOptimal
+                                       : vk::ImageLayout::eColorAttachmentOptimal;
+    }
 
     const vk::ImageCreateInfo image_ci = {
         .flags = flags,
@@ -186,16 +199,25 @@ Image::Image(const Vulkan::Instance& instance_, Vulkan::Scheduler& scheduler_,
         },
         .mipLevels = static_cast<u32>(info.resources.levels),
         .arrayLayers = static_cast<u32>(info.resources.layers),
-        .samples = LiverpoolToVK::NumSamples(info.num_samples, supported_samples),
+        .samples = LiverpoolToVK::NumSamples(multisample_target ? sample_count : info.num_samples,
+                                             supported_samples),
         .tiling = tiling,
         .usage = usage,
-        .initialLayout = vk::ImageLayout::eUndefined,
+        .initialLayout = layout,
     };
 
     image.Create(image_ci);
 
-    Vulkan::SetObjectName(instance->GetDevice(), (vk::Image)image, "Image {}x{}x{} {:#x}:{:#x}",
-                          info.size.width, info.size.height, info.size.depth, info.guest_address,
+    const char* name_format;
+
+    if (multisample_target) {
+        name_format = "Multisample Target {}x{}x{} {:#x}:{:#x}";
+    } else {
+        name_format = "Image {}x{}x{} {:#x}:{:#x}";
+    }
+
+    Vulkan::SetObjectName(instance->GetDevice(), (vk::Image)image, name_format, info.size.width,
+                          info.size.height, info.size.depth, info.guest_address,
                           info.guest_size_bytes);
 }
 
@@ -349,6 +371,35 @@ void Image::Upload(vk::Buffer buffer, u64 offset) {
 
     Transit(vk::ImageLayout::eGeneral,
             vk::AccessFlagBits2::eShaderRead | vk::AccessFlagBits2::eTransferRead, {});
+}
+
+const UniqueImage& Image::GetMultisampleTarget(u32 sample) {
+    u32 index = 0;
+
+    switch (sample) {
+    case 2:
+        index = 0;
+        break;
+    case 4:
+        index = 1;
+        break;
+    case 8:
+        index = 2;
+        break;
+    case 16:
+        index = 3;
+        break;
+    default:
+        UNREACHABLE();
+    }
+
+    if (!multisample_targets[index]) {
+        multisample_targets[index] =
+            std::move(UniqueImage{instance->GetDevice(), instance->GetAllocator()});
+        Create(multisample_targets[index], sample);
+    }
+
+    return multisample_targets[index];
 }
 
 void Image::CopyImage(const Image& image) {
