@@ -97,6 +97,7 @@ void SDLInputEngine::Init() {
         SDL_CloseGamepad(m_gamepad);
         m_gamepad = nullptr;
     }
+
     int gamepad_count;
     SDL_JoystickID* gamepads = SDL_GetGamepads(&gamepad_count);
     if (!gamepads) {
@@ -108,29 +109,58 @@ void SDLInputEngine::Init() {
         SDL_free(gamepads);
         return;
     }
+
     LOG_INFO(Input, "Got {} gamepads. Opening the first one.", gamepad_count);
-    if (!(m_gamepad = SDL_OpenGamepad(gamepads[0]))) {
+    m_gamepad = SDL_OpenGamepad(gamepads[0]);
+    if (!m_gamepad) {
         LOG_ERROR(Input, "Failed to open gamepad 0: {}", SDL_GetError());
         SDL_free(gamepads);
         return;
     }
+
+    SDL_Joystick* joystick = SDL_GetGamepadJoystick(m_gamepad);
+    Uint16 vendor = SDL_GetJoystickVendor(joystick);
+    Uint16 product = SDL_GetJoystickProduct(joystick);
+
+    bool isDualSense = (vendor == 0x054C && product == 0x0CE6);
+
+    LOG_INFO(Input, "Gamepad Vendor: {:04X}, Product: {:04X}", vendor, product);
+    if (isDualSense) {
+        LOG_INFO(Input, "Detected DualSense Controller");
+    }
+
     if (Config::getIsMotionControlsEnabled()) {
         if (SDL_SetGamepadSensorEnabled(m_gamepad, SDL_SENSOR_GYRO, true)) {
             m_gyro_poll_rate = SDL_GetGamepadSensorDataRate(m_gamepad, SDL_SENSOR_GYRO);
             LOG_INFO(Input, "Gyro initialized, poll rate: {}", m_gyro_poll_rate);
         } else {
-            LOG_ERROR(Input, "Failed to initialize gyro controls for gamepad");
+            LOG_ERROR(Input, "Failed to initialize gyro controls for gamepad, error: {}",
+                      SDL_GetError());
+            SDL_SetGamepadSensorEnabled(m_gamepad, SDL_SENSOR_GYRO, false);
         }
         if (SDL_SetGamepadSensorEnabled(m_gamepad, SDL_SENSOR_ACCEL, true)) {
             m_accel_poll_rate = SDL_GetGamepadSensorDataRate(m_gamepad, SDL_SENSOR_ACCEL);
             LOG_INFO(Input, "Accel initialized, poll rate: {}", m_accel_poll_rate);
         } else {
-            LOG_ERROR(Input, "Failed to initialize accel controls for gamepad");
-        };
+            LOG_ERROR(Input, "Failed to initialize accel controls for gamepad, error: {}",
+                      SDL_GetError());
+            SDL_SetGamepadSensorEnabled(m_gamepad, SDL_SENSOR_ACCEL, false);
+        }
     }
+
     SDL_free(gamepads);
+
     int* rgb = Config::GetControllerCustomColor();
-    SetLightBarRGB(rgb[0], rgb[1], rgb[2]);
+
+    if (isDualSense) {
+        if (SDL_SetJoystickLED(joystick, rgb[0], rgb[1], rgb[2]) == 0) {
+            LOG_INFO(Input, "Set DualSense LED to R:{} G:{} B:{}", rgb[0], rgb[1], rgb[2]);
+        } else {
+            LOG_ERROR(Input, "Failed to set DualSense LED: {}", SDL_GetError());
+        }
+    } else {
+        SetLightBarRGB(rgb[0], rgb[1], rgb[2]);
+    }
 }
 
 void SDLInputEngine::SetLightBarRGB(u8 r, u8 g, u8 b) {
@@ -264,8 +294,8 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, Input::GameController* controller_
         error = true;
     }
     if (!error) {
-        SDL_SetWindowFullscreenMode(window,
-                                    Config::getFullscreenMode() == "True" ? displayMode : NULL);
+        SDL_SetWindowFullscreenMode(
+            window, Config::getFullscreenMode() == "Fullscreen" ? displayMode : NULL);
     }
     SDL_SetWindowFullscreen(window, Config::getIsFullscreen());
 

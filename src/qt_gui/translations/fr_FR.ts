@@ -10,10 +10,6 @@
       <translation>À propos de shadPS4</translation>
     </message>
     <message>
-      <source>shadPS4</source>
-      <translation>shadPS4</translation>
-    </message>
-    <message>
       <source>shadPS4 is an experimental open-source emulator for the PlayStation 4.</source>
       <translation>shadPS4 est un émulateur open-source expérimental de la PlayStation 4.</translation>
     </message>
@@ -526,16 +522,16 @@
       <translation type="unfinished">Color Adjustment</translation>
     </message>
     <message>
-      <source>R: 000</source>
-      <translation type="unfinished">R: 000</translation>
+      <source>R:</source>
+      <translation type="unfinished">R:</translation>
     </message>
     <message>
-      <source>G: 000</source>
-      <translation type="unfinished">G: 000</translation>
+      <source>G:</source>
+      <translation type="unfinished">G:</translation>
     </message>
     <message>
-      <source>B: 255</source>
-      <translation type="unfinished">B: 255</translation>
+      <source>B:</source>
+      <translation type="unfinished">B:</translation>
     </message>
     <message>
       <source>Override Lightbar Color</source>
@@ -1284,14 +1280,6 @@
       <translation>Émulateur</translation>
     </message>
     <message>
-      <source>Enable Fullscreen</source>
-      <translation>Plein écran</translation>
-    </message>
-    <message>
-      <source>Fullscreen Mode</source>
-      <translation>Mode Plein Écran</translation>
-    </message>
-    <message>
       <source>Enable Separate Update Folder</source>
       <translation>Dossier séparé pour les mises à jour</translation>
     </message>
@@ -1382,14 +1370,6 @@
     <message>
       <source>Graphics Device</source>
       <translation>Carte graphique</translation>
-    </message>
-    <message>
-      <source>Width</source>
-      <translation>Largeur</translation>
-    </message>
-    <message>
-      <source>Height</source>
-      <translation>Hauteur</translation>
     </message>
     <message>
       <source>Vblank Divider</source>
@@ -1564,10 +1544,6 @@
       <translation>Langue de l&apos;émulateur:\nDéfinit la langue de l&apos;interface utilisateur de l&apos;émulateur.</translation>
     </message>
     <message>
-      <source>Enable Full Screen:\nAutomatically puts the game window into full-screen mode.\nThis can be toggled by pressing the F11 key.</source>
-      <translation>Activer le mode plein écran:\nMet automatiquement la fenêtre du jeu en mode plein écran.\nCela peut être activé en appuyant sur la touche F11.</translation>
-    </message>
-    <message>
       <source>Enable Separate Update Folder:\nEnables installing game updates into a separate folder for easy management.\nThis can be manually created by adding the extracted update to the game folder with the name &quot;CUSA00000-UPDATE&quot; where the CUSA ID matches the game&apos;s ID.</source>
       <translation>Dossier séparé pour les mises à jour:\nInstalle les mises à jours des jeux dans un dossier séparé pour une gestion plus facile.</translation>
     </message>
@@ -1737,19 +1713,11 @@
     </message>
     <message>
       <source>Save Data Path:\nThe folder where game save data will be saved.</source>
-      <translation type="unfinished">Save Data Path:\nThe folder where game save data will be saved.</translation>
+      <translation>Chemin de sauvegarde :\nLe dossier où les sauvegardes du jeu sont enregistré.</translation>
     </message>
     <message>
       <source>Browse:\nBrowse for a folder to set as the save data path.</source>
       <translation type="unfinished">Browse:\nBrowse for a folder to set as the save data path.</translation>
-    </message>
-    <message>
-      <source>Borderless</source>
-      <translation type="unfinished">Borderless</translation>
-    </message>
-    <message>
-      <source>True</source>
-      <translation type="unfinished">True</translation>
     </message>
     <message>
       <source>Release</source>
@@ -1794,6 +1762,46 @@
     <message>
       <source>Directory to save data</source>
       <translation type="unfinished">Directory to save data</translation>
+    </message>
+    <message>
+      <source>Video</source>
+      <translation type="unfinished">Video</translation>
+    </message>
+    <message>
+      <source>Display Mode</source>
+      <translation type="unfinished">Display Mode</translation>
+    </message>
+    <message>
+      <source>Windowed</source>
+      <translation type="unfinished">Windowed</translation>
+    </message>
+    <message>
+      <source>Fullscreen</source>
+      <translation type="unfinished">Fullscreen</translation>
+    </message>
+    <message>
+      <source>Fullscreen (Borderless)</source>
+      <translation type="unfinished">Fullscreen (Borderless)</translation>
+    </message>
+    <message>
+      <source>Window Size</source>
+      <translation type="unfinished">Window Size</translation>
+    </message>
+    <message>
+      <source>W:</source>
+      <translation type="unfinished">W:</translation>
+    </message>
+    <message>
+      <source>H:</source>
+      <translation type="unfinished">H:</translation>
+    </message>
+    <message>
+      <source>Separate Log Files</source>
+      <translation type="unfinished">Separate Log Files</translation>
+    </message>
+    <message>
+      <source>Separate Log Files:\nWrites a separate logfile for each game.</source>
+      <translation type="unfinished">Separate Log Files:\nWrites a separate logfile for each game.</translation>
     </message>
   </context>
   <context>

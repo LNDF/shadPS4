@@ -10,10 +10,6 @@
       <translation>shadPS4 Hakkında</translation>
     </message>
     <message>
-      <source>shadPS4</source>
-      <translation>shadPS4</translation>
-    </message>
-    <message>
       <source>shadPS4 is an experimental open-source emulator for the PlayStation 4.</source>
       <translation>shadPS4, PlayStation 4 için deneysel bir açık kaynak kodlu emülatördür.</translation>
     </message>
@@ -526,20 +522,20 @@
       <translation>Renk Ayarları</translation>
     </message>
     <message>
-      <source>R: 000</source>
-      <translation>K: 000</translation>
+      <source>R:</source>
+      <translation>K:</translation>
     </message>
     <message>
-      <source>G: 000</source>
-      <translation>Y: 000</translation>
+      <source>G:</source>
+      <translation>Y:</translation>
     </message>
     <message>
-      <source>B: 255</source>
-      <translation>B: 255</translation>
+      <source>B:</source>
+      <translation>M:</translation>
     </message>
     <message>
       <source>Override Lightbar Color</source>
-      <translation type="unfinished">Override Lightbar Color</translation>
+      <translation>Işıklı Çubuk Rengini Geçersiz Kıl</translation>
     </message>
     <message>
       <source>Override Color</source>
@@ -841,7 +837,7 @@
     </message>
     <message>
       <source>Are you sure you want to delete %1&apos;s %2 directory?</source>
-      <translation type="unfinished">Are you sure you want to delete %1&apos;s %2 directory?</translation>
+      <translation>%1%2 adlı oyunun dizinini silmek istediğinize emin misiniz?</translation>
     </message>
     <message>
       <source>Open Update Folder</source>
@@ -888,7 +884,7 @@
     </message>
     <message>
       <source>Delete PKG File on Install</source>
-      <translation type="unfinished">Delete PKG File on Install</translation>
+      <translation>Yüklemede PKG Dosyasını Sil</translation>
     </message>
   </context>
   <context>
@@ -1210,7 +1206,7 @@
     </message>
     <message>
       <source>Installed</source>
-      <translation type="unfinished">Installed</translation>
+      <translation>Yüklü</translation>
     </message>
     <message>
       <source>Size</source>
@@ -1282,14 +1278,6 @@
     <message>
       <source>Emulator</source>
       <translation>Emülatör</translation>
-    </message>
-    <message>
-      <source>Enable Fullscreen</source>
-      <translation>Tam Ekranı Etkinleştir</translation>
-    </message>
-    <message>
-      <source>Fullscreen Mode</source>
-      <translation>Tam Ekran Modu</translation>
     </message>
     <message>
       <source>Enable Separate Update Folder</source>
@@ -1384,14 +1372,6 @@
       <translation>Grafik Cihazı</translation>
     </message>
     <message>
-      <source>Width</source>
-      <translation>Genişlik</translation>
-    </message>
-    <message>
-      <source>Height</source>
-      <translation>Yükseklik</translation>
-    </message>
-    <message>
       <source>Vblank Divider</source>
       <translation>Vblank Bölücü</translation>
     </message>
@@ -1449,7 +1429,7 @@
     </message>
     <message>
       <source>Enable Crash Diagnostics</source>
-      <translation type="unfinished">Enable Crash Diagnostics</translation>
+      <translation>Çökme Tanılamalarını Etkinleştir</translation>
     </message>
     <message>
       <source>Collect Shaders</source>
@@ -1564,10 +1544,6 @@
       <translation>Emülatör Dili:\nEmülatörün kullanıcı arayüzünün dilini ayarlar.</translation>
     </message>
     <message>
-      <source>Enable Full Screen:\nAutomatically puts the game window into full-screen mode.\nThis can be toggled by pressing the F11 key.</source>
-      <translation>Tam Ekranı Etkinleştir:\nOyun penceresini otomatik olarak tam ekran moduna alır.\nBu, F11 tuşuna basarak geçiş yapılabilir.</translation>
-    </message>
-    <message>
       <source>Enable Separate Update Folder:\nEnables installing game updates into a separate folder for easy management.\nThis can be manually created by adding the extracted update to the game folder with the name &quot;CUSA00000-UPDATE&quot; where the CUSA ID matches the game&apos;s ID.</source>
       <translation>Enable Separate Update Folder:\nEnables installing game updates into a separate folder for easy management.</translation>
     </message>
@@ -1609,7 +1585,7 @@
     </message>
     <message>
       <source>Disable Trophy Pop-ups:\nDisable in-game trophy notifications. Trophy progress can still be tracked using the Trophy Viewer (right-click the game in the main window).</source>
-      <translation type="unfinished">Disable Trophy Pop-ups:\nDisable in-game trophy notifications. Trophy progress can still be tracked using the Trophy Viewer (right-click the game in the main window).</translation>
+      <translation>Kupa Açılır Pencerelerini Devre Dışı Bırak:\nOyun için kupa bildirimlerini devre dışı bırakın. Kupa ilerlemesi hala Kupa Görüntüleyicisi kullanılarak takip edilebilir (ana menüde oyuna sağ tıklayın).</translation>
     </message>
     <message>
       <source>Hide Cursor:\nChoose when the cursor will disappear:\nNever: You will always see the mouse.\nidle: Set a time for it to disappear after being idle.\nAlways: you will never see the mouse.</source>
@@ -1625,7 +1601,7 @@
     </message>
     <message>
       <source>Display Compatibility Data:\nDisplays game compatibility information in table view. Enable &quot;Update Compatibility On Startup&quot; to get up-to-date information.</source>
-      <translation type="unfinished">Display Compatibility Data:\nDisplays game compatibility information in table view. Enable &quot;Update Compatibility On Startup&quot; to get up-to-date information.</translation>
+      <translation>Uyumluluk Verilerini Göster:\nOyun uyumluluk bilgilerini tablo görünümünde görüntüler. Güncel bilgileri almak için &quot;Başlangıçta Uyumluluk Veritabanını Güncelle&quot;yi etkinleştirin.</translation>
     </message>
     <message>
       <source>Update Compatibility On Startup:\nAutomatically update the compatibility database when shadPS4 starts.</source>
@@ -1717,7 +1693,7 @@
     </message>
     <message>
       <source>Collect Shaders:\nYou need this enabled to edit shaders with the debug menu (Ctrl + F10).</source>
-      <translation type="unfinished">Collect Shaders:\nYou need this enabled to edit shaders with the debug menu (Ctrl + F10).</translation>
+      <translation>Gölgelendiricileri Topla:\nHata ayıklama menüsüyle (Ctrl + F10) gölgelendiricileri düzenlemek için bunun etkinleştirilmesi gerekir.</translation>
     </message>
     <message>
       <source>Crash Diagnostics:\nCreates a .yaml file with info about the Vulkan state at the time of crashing.\nUseful for debugging &apos;Device lost&apos; errors. If you have this enabled, you should enable Host AND Guest Debug Markers.\nDoes not work on Intel GPUs.\nYou need Vulkan Validation Layers enabled and the Vulkan SDK for this to work.</source>
@@ -1725,7 +1701,7 @@
     </message>
     <message>
       <source>Copy GPU Buffers:\nGets around race conditions involving GPU submits.\nMay or may not help with PM4 type 0 crashes.</source>
-      <translation type="unfinished">Copy GPU Buffers:\nGets around race conditions involving GPU submits.\nMay or may not help with PM4 type 0 crashes.</translation>
+      <translation>GPU Arabelleklerini Kopyala:\nGPU gönderimlerini içeren yarış koşullarının etrafından dolaşır.\nPM4 tip 0 çökmelerine yardımcı olabilir veya olmayabilir.</translation>
     </message>
     <message>
       <source>Host Debug Markers:\nInserts emulator-side information like markers for specific AMDGPU commands around Vulkan commands, as well as giving resources debug names.\nIf you have this enabled, you should enable Crash Diagnostics.\nUseful for programs like RenderDoc.</source>
@@ -1733,7 +1709,7 @@
     </message>
     <message>
       <source>Guest Debug Markers:\nInserts any debug markers the game itself has added to the command buffer.\nIf you have this enabled, you should enable Crash Diagnostics.\nUseful for programs like RenderDoc.</source>
-      <translation type="unfinished">Guest Debug Markers:\nInserts any debug markers the game itself has added to the command buffer.\nIf you have this enabled, you should enable Crash Diagnostics.\nUseful for programs like RenderDoc.</translation>
+      <translation>Konuk Hata Ayıklama İşaretleyicileri\nOyunun kendisinin komut arabelleğine eklediği tüm hata ayıklama işaretlerini ekler.\nBunu etkinleştirdiyseniz, Çökme Tanılamalarını etkinleştirmeniz gerekir.\nRenderDoc gibi programlar için kullanışlıdır.</translation>
     </message>
     <message>
       <source>Save Data Path:\nThe folder where game save data will be saved.</source>
@@ -1741,15 +1717,7 @@
     </message>
     <message>
       <source>Browse:\nBrowse for a folder to set as the save data path.</source>
-      <translation type="unfinished">Browse:\nBrowse for a folder to set as the save data path.</translation>
-    </message>
-    <message>
-      <source>Borderless</source>
-      <translation>Çerçevesiz</translation>
-    </message>
-    <message>
-      <source>True</source>
-      <translation type="unfinished">True</translation>
+      <translation>Gözat:\nVerileri kaydetme yolu olarak ayarlamak için bir klasöre göz atın.</translation>
     </message>
     <message>
       <source>Release</source>
@@ -1794,6 +1762,46 @@
     <message>
       <source>Directory to save data</source>
       <translation>Kayıt verilerinin tutulacağı dizin</translation>
+    </message>
+    <message>
+      <source>Video</source>
+      <translation type="unfinished">Video</translation>
+    </message>
+    <message>
+      <source>Display Mode</source>
+      <translation type="unfinished">Display Mode</translation>
+    </message>
+    <message>
+      <source>Windowed</source>
+      <translation type="unfinished">Windowed</translation>
+    </message>
+    <message>
+      <source>Fullscreen</source>
+      <translation>Tam Ekran</translation>
+    </message>
+    <message>
+      <source>Fullscreen (Borderless)</source>
+      <translation>Tam Ekran (Kenarlıksız)</translation>
+    </message>
+    <message>
+      <source>Window Size</source>
+      <translation>Pencere Boyutu</translation>
+    </message>
+    <message>
+      <source>W:</source>
+      <translation>G:</translation>
+    </message>
+    <message>
+      <source>H:</source>
+      <translation>Y:</translation>
+    </message>
+    <message>
+      <source>Separate Log Files</source>
+      <translation>Ayrı Günlük Dosyaları</translation>
+    </message>
+    <message>
+      <source>Separate Log Files:\nWrites a separate logfile for each game.</source>
+      <translation>Ayrı Günlük Dosyaları:\nHer oyun için ayrı bir günlük dosyası yazar.</translation>
     </message>
   </context>
   <context>

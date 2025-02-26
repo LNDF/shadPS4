@@ -10,10 +10,6 @@
       <translation>Riguardo shadPS4</translation>
     </message>
     <message>
-      <source>shadPS4</source>
-      <translation>shadPS4</translation>
-    </message>
-    <message>
       <source>shadPS4 is an experimental open-source emulator for the PlayStation 4.</source>
       <translation>shadPS4 è un emulatore sperimentale open-source per PlayStation 4.</translation>
     </message>
@@ -523,27 +519,27 @@
     </message>
     <message>
       <source>Color Adjustment</source>
-      <translation type="unfinished">Color Adjustment</translation>
+      <translation>Regolazione Colore</translation>
     </message>
     <message>
-      <source>R: 000</source>
-      <translation type="unfinished">R: 000</translation>
+      <source>R:</source>
+      <translation>R:</translation>
     </message>
     <message>
-      <source>G: 000</source>
-      <translation type="unfinished">G: 000</translation>
+      <source>G:</source>
+      <translation>V:</translation>
     </message>
     <message>
-      <source>B: 255</source>
-      <translation type="unfinished">B: 255</translation>
+      <source>B:</source>
+      <translation>B:</translation>
     </message>
     <message>
       <source>Override Lightbar Color</source>
-      <translation type="unfinished">Override Lightbar Color</translation>
+      <translation>Sostituisci Colore Lightbar</translation>
     </message>
     <message>
       <source>Override Color</source>
-      <translation type="unfinished">Override Color</translation>
+      <translation>Sostituisci Colore</translation>
     </message>
   </context>
   <context>
@@ -869,7 +865,7 @@
     </message>
     <message>
       <source>SFO Viewer for </source>
-      <translation type="unfinished">SFO Viewer for </translation>
+      <translation>Visualizzatore SFO per </translation>
     </message>
   </context>
   <context>
@@ -1284,14 +1280,6 @@
       <translation>Emulatore</translation>
     </message>
     <message>
-      <source>Enable Fullscreen</source>
-      <translation>Abilita Schermo Intero</translation>
-    </message>
-    <message>
-      <source>Fullscreen Mode</source>
-      <translation>Modalità Schermo Intero</translation>
-    </message>
-    <message>
       <source>Enable Separate Update Folder</source>
       <translation>Abilita Cartella Aggiornamenti Separata</translation>
     </message>
@@ -1382,14 +1370,6 @@
     <message>
       <source>Graphics Device</source>
       <translation>Scheda Grafica</translation>
-    </message>
-    <message>
-      <source>Width</source>
-      <translation>Larghezza</translation>
-    </message>
-    <message>
-      <source>Height</source>
-      <translation>Altezza</translation>
     </message>
     <message>
       <source>Vblank Divider</source>
@@ -1564,10 +1544,6 @@
       <translation>Lingua dell&apos;Emulatore:\nImposta la lingua dell&apos;interfaccia utente dell&apos;emulatore.</translation>
     </message>
     <message>
-      <source>Enable Full Screen:\nAutomatically puts the game window into full-screen mode.\nThis can be toggled by pressing the F11 key.</source>
-      <translation>Abilita Schermo Intero:\nMetti automaticamente la finestra di gioco in modalità schermo intero.\nQuesto può essere disattivato premendo il tasto F11.</translation>
-    </message>
-    <message>
       <source>Enable Separate Update Folder:\nEnables installing game updates into a separate folder for easy management.\nThis can be manually created by adding the extracted update to the game folder with the name &quot;CUSA00000-UPDATE&quot; where the CUSA ID matches the game&apos;s ID.</source>
       <translation>Abilita Cartella Aggiornamenti Separata:\nAbilita l&apos;installazione degli aggiornamenti in una cartella separata per una più facile gestione.</translation>
     </message>
@@ -1597,7 +1573,7 @@
     </message>
     <message>
       <source>Update:\nRelease: Official versions released every month that may be very outdated, but are more reliable and tested.\nNightly: Development versions that have all the latest features and fixes, but may contain bugs and are less stable.</source>
-      <translation>Aggiornamento:\nRelease: Versioni ufficiali rilasciate ogni mese che potrebbero essere molto datate, ma sono più affidabili e testate.\nNightly: Versioni di sviluppo che hanno tutte le ultime funzionalità e correzioni, ma potrebbero contenere bug e sono meno stabili.</translation>
+      <translation>Aggiornamento:\nRilascio: Versioni ufficiali rilasciate ogni mese che possono essere molto obsolete, ma sono più affidabili e testati.\nNotturno: Le versioni di sviluppo che hanno tutte le ultime funzionalità e correzioni, ma possono contenere bug e sono meno stabili.</translation>
     </message>
     <message>
       <source>Background Image:\nControl the opacity of the game background image.</source>
@@ -1665,7 +1641,7 @@
     </message>
     <message>
       <source>Graphics Device:\nOn multiple GPU systems, select the GPU the emulator will use from the drop down list,\nor select &quot;Auto Select&quot; to automatically determine it.</source>
-      <translation>Dispositivo Grafico:\nIn sistemi con più GPU, seleziona la GPU che l&apos;emulatore utilizzerà dall&apos;elenco a discesa,\no seleziona &quot;Auto Select&quot; per determinarlo automaticamente.</translation>
+      <translation>Dispositivo Grafico:\nIn sistemi con più GPU, seleziona la GPU che l&apos;emulatore utilizzerà dall&apos;elenco a discesa,\no seleziona &quot;Selezione Automatica&quot; per determinarlo automaticamente.</translation>
     </message>
     <message>
       <source>Width/Height:\nSets the size of the emulator window at launch, which can be resized during gameplay.\nThis is different from the in-game resolution.</source>
@@ -1744,14 +1720,6 @@
       <translation>Esplora:\nEsplora una cartella da impostare come percorso dati di salvataggio.</translation>
     </message>
     <message>
-      <source>Borderless</source>
-      <translation>Finestra senza bordi</translation>
-    </message>
-    <message>
-      <source>True</source>
-      <translation>Vero</translation>
-    </message>
-    <message>
       <source>Release</source>
       <translation>Rilascio</translation>
     </message>
@@ -1794,6 +1762,46 @@
     <message>
       <source>Directory to save data</source>
       <translation>Cartella per salvare i dati</translation>
+    </message>
+    <message>
+      <source>Video</source>
+      <translation>Video</translation>
+    </message>
+    <message>
+      <source>Display Mode</source>
+      <translation>Modalità di visualizzazione</translation>
+    </message>
+    <message>
+      <source>Windowed</source>
+      <translation>In finestra</translation>
+    </message>
+    <message>
+      <source>Fullscreen</source>
+      <translation>Schermo Intero</translation>
+    </message>
+    <message>
+      <source>Fullscreen (Borderless)</source>
+      <translation>Schermo Intero (Senza Bordi)</translation>
+    </message>
+    <message>
+      <source>Window Size</source>
+      <translation>Dimensione Finestra</translation>
+    </message>
+    <message>
+      <source>W:</source>
+      <translation>L:</translation>
+    </message>
+    <message>
+      <source>H:</source>
+      <translation>A:</translation>
+    </message>
+    <message>
+      <source>Separate Log Files</source>
+      <translation>File Di Registro Separati</translation>
+    </message>
+    <message>
+      <source>Separate Log Files:\nWrites a separate logfile for each game.</source>
+      <translation>File di registro separati:\nScrive un file di registro separato per ogni gioco.</translation>
     </message>
   </context>
   <context>
