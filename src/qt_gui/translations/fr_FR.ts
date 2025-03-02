@@ -519,19 +519,19 @@
     </message>
     <message>
       <source>Color Adjustment</source>
-      <translation type="unfinished">Color Adjustment</translation>
+      <translation>Ajustement des couleurs</translation>
     </message>
     <message>
       <source>R:</source>
-      <translation type="unfinished">R:</translation>
+      <translation>R:</translation>
     </message>
     <message>
       <source>G:</source>
-      <translation type="unfinished">G:</translation>
+      <translation>G:</translation>
     </message>
     <message>
       <source>B:</source>
-      <translation type="unfinished">B:</translation>
+      <translation>B:</translation>
     </message>
     <message>
       <source>Override Lightbar Color</source>
@@ -539,7 +539,7 @@
     </message>
     <message>
       <source>Override Color</source>
-      <translation type="unfinished">Override Color</translation>
+      <translation>Remplacer la couleur</translation>
     </message>
   </context>
   <context>
@@ -776,6 +776,10 @@
       <translation>Supprimer DLC</translation>
     </message>
     <message>
+      <source>Delete Trophy</source>
+      <translation type="unfinished">Delete Trophy</translation>
+    </message>
+    <message>
       <source>Compatibility...</source>
       <translation>Compatibilité...</translation>
     </message>
@@ -852,6 +856,10 @@
       <translation>Ce jeu n'a pas de dossier de mise à jour à ouvrir!</translation>
     </message>
     <message>
+      <source>No log file found for this game!</source>
+      <translation type="unfinished">No log file found for this game!</translation>
+    </message>
+    <message>
       <source>Failed to convert icon.</source>
       <translation>Échec de la conversion de l'icône.</translation>
     </message>
@@ -860,8 +868,16 @@
       <translation>Ce jeu n'a pas de mise à jour à supprimer!</translation>
     </message>
     <message>
+      <source>This game has no saved trophies to delete!</source>
+      <translation type="unfinished">This game has no saved trophies to delete!</translation>
+    </message>
+    <message>
       <source>Save Data</source>
       <translation>Enregistrer les Données</translation>
+    </message>
+    <message>
+      <source>Trophy</source>
+      <translation type="unfinished">Trophy</translation>
     </message>
     <message>
       <source>SFO Viewer for </source>
@@ -1234,7 +1250,7 @@
     </message>
     <message>
       <source>Flags</source>
-      <translation type="unfinished">Flags</translation>
+      <translation>Les indicateurs</translation>
     </message>
     <message>
       <source>Path</source>
@@ -1310,6 +1326,10 @@
     <message>
       <source>Trophy</source>
       <translation>Trophée</translation>
+    </message>
+    <message>
+      <source>Open the custom trophy images/sounds folder</source>
+      <translation type="unfinished">Open the custom trophy images/sounds folder</translation>
     </message>
     <message>
       <source>Logger</source>
@@ -1476,8 +1496,8 @@
       <translation>Musique du titre</translation>
     </message>
     <message>
-      <source>Disable Trophy Pop-ups</source>
-      <translation>Désactiver les notifications de trophées</translation>
+      <source>Disable Trophy Notification</source>
+      <translation type="unfinished">Disable Trophy Notification</translation>
     </message>
     <message>
       <source>Background Image</source>
@@ -1577,7 +1597,7 @@
     </message>
     <message>
       <source>Background Image:\nControl the opacity of the game background image.</source>
-      <translation type="unfinished">Background Image:\nControl the opacity of the game background image.</translation>
+      <translation>Image de fond :\nContrôle l'opacité de l'image de fond du jeu.</translation>
     </message>
     <message>
       <source>Play Title Music:\nIf a game supports it, enable playing special music when selecting the game in the GUI.</source>
@@ -1610,6 +1630,10 @@
     <message>
       <source>Update Compatibility Database:\nImmediately update the compatibility database.</source>
       <translation>Mettre à jour la compatibilité au démarrage:\nMet à jour immédiatement la base de données de compatibilité.</translation>
+    </message>
+    <message>
+      <source>Open the custom trophy images/sounds folder:\nYou can add custom images to the trophies and an audio.\nAdd the files to custom_trophy with the following names:\nthophy.mp3, bronze.png, gold.png, platinum.png, silver.png</source>
+      <translation type="unfinished">Open the custom trophy images/sounds folder:\nYou can add custom images to the trophies and an audio.\nAdd the files to custom_trophy with the following names:\nthophy.mp3, bronze.png, gold.png, platinum.png, silver.png</translation>
     </message>
     <message>
       <source>Never</source>
@@ -1661,7 +1685,7 @@
     </message>
     <message>
       <source>Enable HDR:\nEnables HDR in games that support it.\nYour monitor must have support for the BT2020 PQ color space and the RGB10A2 swapchain format.</source>
-      <translation type="unfinished">Enable HDR:\nEnables HDR in games that support it.\nYour monitor must have support for the BT2020 PQ color space and the RGB10A2 swapchain format.</translation>
+      <translation>Activer HDR:\nActive le HDR dans les jeux qui le supportent.\nVotre moniteur doit avoir la prise en charge de l'espace couleur PQ BT2020 et du format swapchain RGB10A2.</translation>
     </message>
     <message>
       <source>Game Folders:\nThe list of folders to check for installed games.</source>
@@ -1721,11 +1745,11 @@
     </message>
     <message>
       <source>Release</source>
-      <translation type="unfinished">Release</translation>
+      <translation>Sortie</translation>
     </message>
     <message>
       <source>Nightly</source>
-      <translation type="unfinished">Nightly</translation>
+      <translation>Nocturne</translation>
     </message>
     <message>
       <source>Set the volume of the background music.</source>
@@ -1737,7 +1761,7 @@
     </message>
     <message>
       <source>Save Data Path</source>
-      <translation type="unfinished">Save Data Path</translation>
+      <translation>Enregistrer le chemin vers les données</translation>
     </message>
     <message>
       <source>Browse</source>
@@ -1745,15 +1769,15 @@
     </message>
     <message>
       <source>async</source>
-      <translation type="unfinished">async</translation>
+      <translation>asynchrone</translation>
     </message>
     <message>
       <source>sync</source>
-      <translation type="unfinished">sync</translation>
+      <translation>synchrone</translation>
     </message>
     <message>
       <source>Auto Select</source>
-      <translation type="unfinished">Auto Select</translation>
+      <translation>Sélection automatique</translation>
     </message>
     <message>
       <source>Directory to install games</source>
@@ -1761,39 +1785,39 @@
     </message>
     <message>
       <source>Directory to save data</source>
-      <translation type="unfinished">Directory to save data</translation>
+      <translation>Répertoire d'enregistrement des données</translation>
     </message>
     <message>
       <source>Video</source>
-      <translation type="unfinished">Video</translation>
+      <translation>Vidéo</translation>
     </message>
     <message>
       <source>Display Mode</source>
-      <translation type="unfinished">Display Mode</translation>
+      <translation>Mode d'affichage</translation>
     </message>
     <message>
       <source>Windowed</source>
-      <translation type="unfinished">Windowed</translation>
+      <translation>Fenêtré</translation>
     </message>
     <message>
       <source>Fullscreen</source>
-      <translation type="unfinished">Fullscreen</translation>
+      <translation>Plein écran</translation>
     </message>
     <message>
       <source>Fullscreen (Borderless)</source>
-      <translation type="unfinished">Fullscreen (Borderless)</translation>
+      <translation>Plein écran (sans bordure)</translation>
     </message>
     <message>
       <source>Window Size</source>
-      <translation type="unfinished">Window Size</translation>
+      <translation>Taille de fenêtre</translation>
     </message>
     <message>
       <source>W:</source>
-      <translation type="unfinished">W:</translation>
+      <translation>W:</translation>
     </message>
     <message>
       <source>H:</source>
-      <translation type="unfinished">H:</translation>
+      <translation>H:</translation>
     </message>
     <message>
       <source>Separate Log Files</source>
@@ -1803,12 +1827,44 @@
       <source>Separate Log Files:\nWrites a separate logfile for each game.</source>
       <translation type="unfinished">Separate Log Files:\nWrites a separate logfile for each game.</translation>
     </message>
+    <message>
+      <source>Trophy Notification Position</source>
+      <translation type="unfinished">Trophy Notification Position</translation>
+    </message>
+    <message>
+      <source>Left</source>
+      <translation type="unfinished">Left</translation>
+    </message>
+    <message>
+      <source>Right</source>
+      <translation type="unfinished">Right</translation>
+    </message>
+    <message>
+      <source>Notification Duration</source>
+      <translation type="unfinished">Notification Duration</translation>
+    </message>
   </context>
   <context>
     <name>TrophyViewer</name>
     <message>
       <source>Trophy Viewer</source>
       <translation>Visionneuse de trophées</translation>
+    </message>
+    <message>
+      <source>Progress</source>
+      <translation type="unfinished">Progress</translation>
+    </message>
+    <message>
+      <source>Show Earned Trophies</source>
+      <translation type="unfinished">Show Earned Trophies</translation>
+    </message>
+    <message>
+      <source>Show Not Earned Trophies</source>
+      <translation type="unfinished">Show Not Earned Trophies</translation>
+    </message>
+    <message>
+      <source>Show Hidden Trophies</source>
+      <translation type="unfinished">Show Hidden Trophies</translation>
     </message>
   </context>
 </TS>
