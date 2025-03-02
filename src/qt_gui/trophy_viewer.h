@@ -4,12 +4,15 @@
 #pragma once
 
 #include <QApplication>
+#include <QCheckBox>
 #include <QDir>
+#include <QDockWidget>
 #include <QFileInfoList>
 #include <QGraphicsBlurEffect>
 #include <QHeaderView>
 #include <QLabel>
 #include <QMainWindow>
+#include <QPushButton>
 #include <QTableWidget>
 #include <QTableWidgetItem>
 #include <QVBoxLayout>
@@ -23,6 +26,12 @@ class TrophyViewer : public QMainWindow {
 public:
     explicit TrophyViewer(QString trophyPath, QString gameTrpPath);
 
+    void updateTrophyInfo();
+
+    void updateTableFilters();
+    void onDockClosed();
+    void reopenLeftDock();
+
 private:
     void PopulateTrophyWidget(QString title);
     void SetTableItem(QTableWidget* parent, int row, int column, QString str);
@@ -31,6 +40,13 @@ private:
     QStringList headers;
     QString gameTrpPath_;
     TRP trp;
+    QLabel* trophyInfoLabel;
+    QCheckBox* showEarnedCheck;
+    QCheckBox* showNotEarnedCheck;
+    QCheckBox* showHiddenCheck;
+    QPushButton* expandButton;
+    QDockWidget* trophyInfoDock;
+    QPushButton* reopenButton;
 
     std::string GetTrpType(const QChar trp_) {
         switch (trp_.toLatin1()) {
