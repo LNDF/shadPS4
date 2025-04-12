@@ -146,9 +146,7 @@ SparseBuffer::~SparseBuffer() {
     if (!buffer) {
         return;
     }
-    if (fence) {
-        instance->GetDevice().destroyFence(fence);
-    }
+    instance->GetDevice().destroyFence(fence);
     instance->GetDevice().destroyBuffer(buffer);
     for (auto& [_, allocation] : allocations) {
         if (allocation.allocation) {
@@ -295,6 +293,66 @@ void SparseBuffer::UnbindRegion(VAddr addr, u64 size) {
             allocations.erase(it);
         }
     }
+}
+
+ImportedHostBuffer::ImportedHostBuffer(const Vulkan::Instance& instance_,
+                                       Vulkan::Scheduler& scheduler_, VAddr cpu_addr_,
+                                       u64 size_bytes_, bool with_bda, vk::BufferUsageFlags flags)
+    : cpu_addr{cpu_addr_}, size_bytes{size_bytes_}, instance{&instance_}, scheduler{&scheduler_} {
+    ASSERT_MSG(size_bytes > 0, "Size must be greater than 0");
+    ASSERT_MSG(cpu_addr != 0, "CPU address must not be null");
+    const vk::DeviceSize alignment = instance->GetExternalMemoryHostAlignment();
+    ASSERT_MSG(cpu_addr % alignment == 0, "CPU address {:#x} is not aligned to {:#x}", cpu_addr,
+               alignment);
+    ASSERT_MSG(size_bytes % alignment == 0, "Size {:#x} is not aligned to {:#x}", size_bytes,
+               alignment);
+
+    vk::ImportMemoryHostPointerInfoEXT import_info{
+        .pHostPointer = reinterpret_cast<void*>(cpu_addr),
+    };
+    vk::BufferCreateInfo buffer_ci{
+        .size = size_bytes,
+        .usage = flags | (with_bda ? vk::BufferUsageFlagBits::eShaderDeviceAddress : vk::BufferUsageFlags{}),
+    };
+    vk::MemoryAllocateInfo alloc_ci{
+        .pNext = &import_info,
+        .allocationSize = size_bytes,
+        .memoryTypeIndex = instance->GetMemoryTypeIndex(
+            vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent),
+    };
+
+    auto buffer_result = instance->GetDevice().createBuffer(buffer_ci);
+    ASSERT_MSG(buffer_result.result == vk::Result::eSuccess,
+               "Failed creating imported host buffer with error {}",
+               vk::to_string(buffer_result.result));
+    buffer = buffer_result.value;
+
+    auto device_memory_result = instance->GetDevice().allocateMemory(alloc_ci);
+    ASSERT_MSG(device_memory_result.result == vk::Result::eSuccess,
+               "Failed allocating imported host memory with error {}",
+               vk::to_string(device_memory_result.result));
+    device_memory = device_memory_result.value;
+
+    auto result = instance->GetDevice().bindBufferMemory(buffer, device_memory, 0);
+    ASSERT_MSG(result == vk::Result::eSuccess,
+               "Failed binding imported host buffer with error {}",
+               vk::to_string(result));
+
+    if (with_bda) {
+        vk::BufferDeviceAddressInfo bda_info{
+            .buffer = buffer,
+        };
+        bda_addr = instance->GetDevice().getBufferAddress(bda_info);
+    }
+}
+
+ImportedHostBuffer::~ImportedHostBuffer() {
+    if (!buffer) {
+        return;
+    }
+    const auto device = instance->GetDevice();
+    device.destroyBuffer(buffer);
+    device.freeMemory(device_memory);
 }
 
 constexpr u64 WATCHES_INITIAL_RESERVE = 0x4000;

@@ -160,12 +160,32 @@ class SparseBuffer {
 public:
     SparseBuffer(const Vulkan::Instance& instance, Vulkan::Scheduler& scheduler,
                     MemoryUsage usage, vk::BufferUsageFlags flags, u64 size_bytes_);
+    ~SparseBuffer();
 
     SparseBuffer& operator=(const SparseBuffer&) = delete;
     SparseBuffer(const SparseBuffer&) = delete;
 
-    SparseBuffer(SparseBuffer&& other) = default;
-    SparseBuffer& operator=(SparseBuffer&& other) = default;
+    SparseBuffer(SparseBuffer&& other) 
+        : size_bytes{std::exchange(other.size_bytes, 0)},
+          instance{other.instance}, scheduler{other.scheduler}, fence{std::exchange(other.fence, VK_NULL_HANDLE)},
+          usage{other.usage}, buffer{std::exchange(other.buffer, VK_NULL_HANDLE)}, mem_reqs{other.mem_reqs},
+          access_mask{other.access_mask}, stage{other.stage}, allocations{std::move(other.allocations)},
+          bound_regions{std::move(other.bound_regions)}, user_regions{std::move(other.user_regions)} {}
+    SparseBuffer& operator=(SparseBuffer&& other) {
+        size_bytes = std::exchange(other.size_bytes, 0);
+        instance = other.instance;
+        scheduler = other.scheduler;
+        fence = std::exchange(other.fence, VK_NULL_HANDLE);
+        usage = other.usage;
+        buffer = std::exchange(other.buffer, VK_NULL_HANDLE);
+        mem_reqs = other.mem_reqs;
+        access_mask = other.access_mask;
+        stage = other.stage;
+        allocations = std::move(other.allocations);
+        bound_regions = std::move(other.bound_regions);
+        user_regions = std::move(other.user_regions);
+        return *this;
+    }
 
     /// Returns true when vaddr -> vaddr+size is fully contained in the buffer and it is bound
     [[nodiscard]] bool IsInBounds(VAddr addr, u64 size) const noexcept;
@@ -305,6 +325,64 @@ private:
     boost::container::flat_map<VAddr, Allocation> allocations;
     boost::icl::interval_set<u64> bound_regions;
     boost::icl::interval_set<u64> user_regions;
+};
+
+class ImportedHostBuffer {
+public:
+    ImportedHostBuffer(const Vulkan::Instance& instance, Vulkan::Scheduler& scheduler,
+                        VAddr cpu_addr_, u64 size_bytes_, bool with_bda, vk::BufferUsageFlags flags);
+    ~ImportedHostBuffer();
+
+
+    ImportedHostBuffer& operator=(const ImportedHostBuffer&) = delete;
+    ImportedHostBuffer(const ImportedHostBuffer&) = delete;
+
+    ImportedHostBuffer(ImportedHostBuffer&& other)
+        : size_bytes{std::exchange(other.size_bytes, 0)},
+          cpu_addr{std::exchange(other.cpu_addr, 0)},
+          bda_addr{std::exchange(other.bda_addr, 0)},
+          instance{other.instance}, scheduler{other.scheduler},
+          buffer{std::exchange(other.buffer, VK_NULL_HANDLE)},
+          device_memory{std::exchange(other.device_memory, VK_NULL_HANDLE)} {}
+    ImportedHostBuffer& operator=(ImportedHostBuffer&& other) {
+        size_bytes = std::exchange(other.size_bytes, 0);
+        cpu_addr = std::exchange(other.cpu_addr, 0);
+        bda_addr = std::exchange(other.bda_addr, false);
+        instance = other.instance;
+        scheduler = other.scheduler;
+        buffer = std::exchange(other.buffer, VK_NULL_HANDLE);
+        device_memory = std::exchange(other.device_memory, VK_NULL_HANDLE);
+        return *this;
+    }
+
+    /// Returns the base CPU address of the buffer
+    [[nodiscard]] VAddr CpuAddr() const noexcept {
+        return cpu_addr;
+    }
+
+    // Returns the handle to the Vulkan buffer
+    [[nodiscard]] vk::Buffer Handle() const noexcept {
+        return buffer;
+    }
+
+    // Returns the size of the buffer in bytes
+    [[nodiscard]] size_t SizeBytes() const noexcept {
+        return size_bytes;
+    }
+
+    // Returns the Buffer Device Address of the buffer
+    [[nodiscard]] u64 BufferDeviceAddress() const noexcept {
+        ASSERT_MSG(bda_addr != 0, "Buffer device address not available");
+        return bda_addr;
+    }
+private:
+    size_t size_bytes = 0;
+    VAddr cpu_addr = 0;
+    u64 bda_addr = 0;
+    const Vulkan::Instance* instance;
+    Vulkan::Scheduler* scheduler;
+    vk::Buffer buffer;
+    vk::DeviceMemory device_memory;
 };
 
 class StreamBuffer : public Buffer {

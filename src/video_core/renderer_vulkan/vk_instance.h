@@ -292,6 +292,21 @@ public:
                properties.limits.framebufferStencilSampleCounts;
     }
 
+    /// Returns the minimum alignment for imported host memory.
+    vk::DeviceSize GetExternalMemoryHostAlignment() const {
+        return external_memory_host_props.minImportedHostPointerAlignment;
+    }
+
+    /// Get a index for memory type that is compatible with the given memory property flags.
+    u32 GetMemoryTypeIndex(vk::MemoryPropertyFlags flags) const {
+        for (u32 i = 0; i < memory_properties.memoryTypeCount; i++) {
+            if ((memory_properties.memoryTypes[i].propertyFlags & flags) == flags) {
+                return i;
+            }
+        }
+        UNREACHABLE_MSG("No compatible memory type found for flags {}", vk::to_string(flags));
+    }
+
     /// Returns whether disabling primitive restart is supported.
     bool IsPrimitiveRestartDisableSupported() const {
         return driver_id != vk::DriverId::eMoltenvk;
@@ -319,9 +334,11 @@ private:
     vk::PhysicalDevice physical_device;
     vk::UniqueDevice device;
     vk::PhysicalDeviceProperties properties;
+    vk::PhysicalDeviceMemoryProperties memory_properties;
     vk::PhysicalDeviceVulkan11Properties vk11_props;
     vk::PhysicalDeviceVulkan12Properties vk12_props;
     vk::PhysicalDevicePushDescriptorPropertiesKHR push_descriptor_props;
+    vk::PhysicalDeviceExternalMemoryHostPropertiesEXT external_memory_host_props;
     vk::PhysicalDeviceFeatures features;
     vk::PhysicalDevicePortabilitySubsetFeaturesKHR portability_features;
     vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT dynamic_state_3_features;
