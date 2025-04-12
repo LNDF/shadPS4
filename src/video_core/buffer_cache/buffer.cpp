@@ -147,7 +147,6 @@ SparseBuffer::~SparseBuffer() {
         return;
     }
     if (fence) {
-        instance->GetDevice().waitForFences(fence, VK_TRUE, UINT64_MAX);
         instance->GetDevice().destroyFence(fence);
     }
     instance->GetDevice().destroyBuffer(buffer);
@@ -156,6 +155,14 @@ SparseBuffer::~SparseBuffer() {
             vmaFreeMemory(instance->GetAllocator(), allocation.allocation);
         }
     }
+}
+
+bool SparseBuffer::IsInBounds(VAddr addr, u64 size) const noexcept {
+    if (size == 0) {
+        return true;
+    }
+    auto user_interval = boost::icl::interval<u64>::right_open(addr, addr + size);
+    return boost::icl::contains(user_regions, user_interval);
 }
 
 void SparseBuffer::BindRegion(VAddr addr, u64 size) {
