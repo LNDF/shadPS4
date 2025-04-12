@@ -155,20 +155,20 @@ SparseBuffer::~SparseBuffer() {
     }
 }
 
-bool SparseBuffer::IsInBounds(VAddr addr, u64 size) const noexcept {
+bool SparseBuffer::IsInBounds(vk::DeviceAddress addr, vk::DeviceSize size) const noexcept {
     if (size == 0) {
         return true;
     }
-    auto user_interval = boost::icl::interval<u64>::right_open(addr, addr + size);
+    auto user_interval = boost::icl::interval<vk::DeviceAddress>::right_open(addr, addr + size);
     return boost::icl::contains(user_regions, user_interval);
 }
 
-void SparseBuffer::BindRegion(VAddr addr, u64 size) {
+void SparseBuffer::BindRegion(vk::DeviceAddress addr, vk::DeviceSize size) {
     if (size == 0) {
         return;
     }
 
-    auto user_interval = boost::icl::interval<u64>::right_open(addr, addr + size);
+    auto user_interval = boost::icl::interval<vk::DeviceAddress>::right_open(addr, addr + size);
     user_regions += user_interval;
 
     const auto aligned_start = Common::AlignUp(addr, mem_reqs.alignment);
@@ -185,8 +185,8 @@ void SparseBuffer::BindRegion(VAddr addr, u64 size) {
 
     boost::container::small_vector<vk::SparseMemoryBind, 8> binds;
 
-    for (VAddr i = aligned_start; i < aligned_end; i += mem_reqs.alignment) {
-        auto aligned_interval = boost::icl::interval<u64>::right_open(i, i + mem_reqs.alignment);
+    for (vk::DeviceAddress i = aligned_start; i < aligned_end; i += mem_reqs.alignment) {
+        auto aligned_interval = boost::icl::interval<vk::DeviceAddress>::right_open(i, i + mem_reqs.alignment);
         if (!boost::icl::intersects(user_regions - user_interval, aligned_interval)) {
             bound_regions += aligned_interval;
             
@@ -230,22 +230,22 @@ void SparseBuffer::BindRegion(VAddr addr, u64 size) {
     }
 }
 
-void SparseBuffer::UnbindRegion(VAddr addr, u64 size) {
+void SparseBuffer::UnbindRegion(vk::DeviceAddress addr, vk::DeviceSize size) {
     if (size == 0) {
         return;
     }
 
-    auto user_interval = boost::icl::interval<u64>::right_open(addr, addr + size);
+    auto user_interval = boost::icl::interval<vk::DeviceAddress>::right_open(addr, addr + size);
     user_regions -= user_interval;
 
     const auto aligned_start = Common::AlignUp(addr, mem_reqs.alignment);
     const auto aligned_end = Common::AlignUp(addr + size, mem_reqs.alignment);
 
     boost::container::small_vector<vk::SparseMemoryBind, 8> binds;
-    boost::container::small_vector<VAddr, 8> to_free;
+    boost::container::small_vector<vk::DeviceAddress, 8> to_free;
 
-    for (VAddr i = aligned_start; i < aligned_end; i += mem_reqs.alignment) {
-        auto aligned_interval = boost::icl::interval<u64>::right_open(i, i + mem_reqs.alignment);
+    for (vk::DeviceAddress i = aligned_start; i < aligned_end; i += mem_reqs.alignment) {
+        auto aligned_interval = boost::icl::interval<vk::DeviceAddress>::right_open(i, i + mem_reqs.alignment);
         if (boost::icl::intersects(user_regions, aligned_interval)) {
             bound_regions -= aligned_interval;
             
@@ -296,14 +296,14 @@ void SparseBuffer::UnbindRegion(VAddr addr, u64 size) {
 }
 
 ImportedHostBuffer::ImportedHostBuffer(const Vulkan::Instance& instance_,
-                                       Vulkan::Scheduler& scheduler_, VAddr cpu_addr_,
+                                       Vulkan::Scheduler& scheduler_, void* cpu_addr_,
                                        u64 size_bytes_, bool with_bda, vk::BufferUsageFlags flags)
     : cpu_addr{cpu_addr_}, size_bytes{size_bytes_}, instance{&instance_}, scheduler{&scheduler_} {
     ASSERT_MSG(size_bytes > 0, "Size must be greater than 0");
     ASSERT_MSG(cpu_addr != 0, "CPU address must not be null");
     const vk::DeviceSize alignment = instance->GetExternalMemoryHostAlignment();
-    ASSERT_MSG(cpu_addr % alignment == 0, "CPU address {:#x} is not aligned to {:#x}", cpu_addr,
-               alignment);
+    ASSERT_MSG(reinterpret_cast<u64>(cpu_addr) % alignment == 0,
+               "CPU address {:#x} is not aligned to {:#x}", cpu_addr, alignment);
     ASSERT_MSG(size_bytes % alignment == 0, "Size {:#x} is not aligned to {:#x}", size_bytes,
                alignment);
 

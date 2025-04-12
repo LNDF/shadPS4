@@ -159,7 +159,7 @@ public:
 class SparseBuffer {
 public:
     SparseBuffer(const Vulkan::Instance& instance, Vulkan::Scheduler& scheduler,
-                    MemoryUsage usage, vk::BufferUsageFlags flags, u64 size_bytes_);
+                    MemoryUsage usage, vk::BufferUsageFlags flags, vk::DeviceSize size_bytes_);
     ~SparseBuffer();
 
     SparseBuffer& operator=(const SparseBuffer&) = delete;
@@ -187,8 +187,8 @@ public:
         return *this;
     }
 
-    /// Returns true when vaddr -> vaddr+size is fully contained in the buffer and it is bound
-    [[nodiscard]] bool IsInBounds(VAddr addr, u64 size) const noexcept;
+    /// Returns true when addr -> addr+size is fully contained in the buffer and it is bound
+    [[nodiscard]] bool IsInBounds(vk::DeviceAddress addr, vk::DeviceSize size) const noexcept;
 
     size_t SizeBytes() const {
         return size_bytes;
@@ -222,34 +222,34 @@ public:
     }
 
     // Binds a region of the buffer. Alignment is handled internally.
-    void BindRegion(VAddr addr, u64 size);
+    void BindRegion(vk::DeviceAddress addr, vk::DeviceSize size);
 
     // Unbinds a region of the buffer. Alignment is handled internally.
-    void UnbindRegion(VAddr addr, u64 size);
+    void UnbindRegion(vk::DeviceAddress addr, vk::DeviceSize size);
 
     // Write data to the buffer. Alignment is handled internally.
     template <typename T>
-    void WriteData(VAddr addr, std::span<const T> data) {
+    void WriteData(vk::DeviceAddress addr, std::span<const T> data) {
         const size_t total_size = data.size_bytes();
         const u8* p = static_cast<const u8*>(data.data());
 
-        VAddr start = Common::AlignDown(addr, mem_reqs.alignment);
-        VAddr end = Common::AlignDown(addr + total_size, mem_reqs.alignment);
-        VAddr final = addr + total_size;
+        vk::DeviceAddress start = Common::AlignDown(addr, mem_reqs.alignment);
+        vk::DeviceAddress end = Common::AlignDown(addr + total_size, mem_reqs.alignment);
+        vk::DeviceAddress final = addr + total_size;
 
         auto it = allocations.find(start);
 
-        for (VAddr region = start; region <= end; region += mem_reqs.alignment, ++it) {
+        for (vk::DeviceAddress region = start; region <= end; region += mem_reqs.alignment, ++it) {
             ASSERT_MSG(it != allocations.end()  && it->first == region, "Write to non bound address {:#x}", region);
             Allocation& allocation = it->second;
             ASSERT_MSG(allocation.mapped != nullptr, "Write to non host visible address {:#x}",
                        region);
 
-            VAddr region_start = region;
-            VAddr region_end = region + mem_reqs.alignment;
+            vk::DeviceAddress region_start = region;
+            vk::DeviceAddress region_end = region + mem_reqs.alignment;
 
-            VAddr copy_start = std::max(addr, region_start);
-            VAddr copy_end = std::min(final, region_end);
+            vk::DeviceAddress copy_start = std::max(addr, region_start);
+            vk::DeviceAddress copy_end = std::min(final, region_end);
 
             size_t offset = copy_start - region_start;
             size_t copy_size = copy_end - copy_start;
@@ -261,12 +261,12 @@ public:
     }
 
     template <typename T>
-    void WriteData(VAddr addr, const T& data) {
+    void WriteData(vk::DeviceAddress addr, const T& data) {
         WriteData(addr, std::span<const T>{&data, 1});
     }
 
     template <typename T>
-    T ReadData(VAddr addr) {
+    T ReadData(vk::DeviceAddress addr) {
         T data{};
         ReadData(addr, std::span<T>{&data, 1});
         return data;
@@ -274,27 +274,27 @@ public:
 
     // Read data from the buffer. Alignment is handled internally.
     template <typename T>
-    void ReadData(VAddr addr, std::span<T> data) {
+    void ReadData(vk::DeviceAddress addr, std::span<T> data) {
         const size_t total_size = data.size_bytes();
         u8* p = reinterpret_cast<u8*>(std::addressof(data[0]));
 
-        VAddr start = Common::AlignDown(addr, mem_reqs.alignment);
-        VAddr end = Common::AlignDown(addr + total_size, mem_reqs.alignment);
-        VAddr final = addr + total_size;
+        vk::DeviceAddress start = Common::AlignDown(addr, mem_reqs.alignment);
+        vk::DeviceAddress end = Common::AlignDown(addr + total_size, mem_reqs.alignment);
+        vk::DeviceAddress final = addr + total_size;
 
         auto it = allocations.find(start);
 
-        for (VAddr region = start; region <= end; region += mem_reqs.alignment, ++it) {
+        for (vk::DeviceAddress region = start; region <= end; region += mem_reqs.alignment, ++it) {
             ASSERT_MSG(it != allocations.end()  && it->first == region, "Read from non bound address {:#x}", region);
             Allocation& allocation = it->second;
             ASSERT_MSG(allocation.mapped != nullptr, "Read from non host visible address {:#x}",
                        region);
 
-            VAddr region_start = region;
-            VAddr region_end = region + mem_reqs.alignment;
+            vk::DeviceAddress region_start = region;
+            vk::DeviceAddress region_end = region + mem_reqs.alignment;
 
-            VAddr copy_start = std::max(addr, region_start);
-            VAddr copy_end = std::min(final, region_end);
+            vk::DeviceAddress copy_start = std::max(addr, region_start);
+            vk::DeviceAddress copy_end = std::min(final, region_end);
 
             size_t offset = copy_start - region_start;
             size_t copy_size = copy_end - copy_start;
@@ -322,15 +322,15 @@ private:
         vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite |
         vk::AccessFlagBits2::eTransferRead | vk::AccessFlagBits2::eTransferWrite};
         vk::PipelineStageFlagBits2 stage{vk::PipelineStageFlagBits2::eAllCommands};
-    boost::container::flat_map<VAddr, Allocation> allocations;
-    boost::icl::interval_set<u64> bound_regions;
-    boost::icl::interval_set<u64> user_regions;
+    boost::container::flat_map<vk::DeviceAddress, Allocation> allocations;
+    boost::icl::interval_set<vk::DeviceAddress> bound_regions;
+    boost::icl::interval_set<vk::DeviceAddress> user_regions;
 };
 
 class ImportedHostBuffer {
 public:
     ImportedHostBuffer(const Vulkan::Instance& instance, Vulkan::Scheduler& scheduler,
-                        VAddr cpu_addr_, u64 size_bytes_, bool with_bda, vk::BufferUsageFlags flags);
+                        void* cpu_addr_, u64 size_bytes_, bool with_bda, vk::BufferUsageFlags flags);
     ~ImportedHostBuffer();
 
 
@@ -339,14 +339,14 @@ public:
 
     ImportedHostBuffer(ImportedHostBuffer&& other)
         : size_bytes{std::exchange(other.size_bytes, 0)},
-          cpu_addr{std::exchange(other.cpu_addr, 0)},
+          cpu_addr{std::exchange(other.cpu_addr, nullptr)},
           bda_addr{std::exchange(other.bda_addr, 0)},
           instance{other.instance}, scheduler{other.scheduler},
           buffer{std::exchange(other.buffer, VK_NULL_HANDLE)},
           device_memory{std::exchange(other.device_memory, VK_NULL_HANDLE)} {}
     ImportedHostBuffer& operator=(ImportedHostBuffer&& other) {
         size_bytes = std::exchange(other.size_bytes, 0);
-        cpu_addr = std::exchange(other.cpu_addr, 0);
+        cpu_addr = std::exchange(other.cpu_addr, nullptr);
         bda_addr = std::exchange(other.bda_addr, false);
         instance = other.instance;
         scheduler = other.scheduler;
@@ -356,7 +356,7 @@ public:
     }
 
     /// Returns the base CPU address of the buffer
-    [[nodiscard]] VAddr CpuAddr() const noexcept {
+    [[nodiscard]] void* CpuAddr() const noexcept {
         return cpu_addr;
     }
 
@@ -371,14 +371,14 @@ public:
     }
 
     // Returns the Buffer Device Address of the buffer
-    [[nodiscard]] u64 BufferDeviceAddress() const noexcept {
+    [[nodiscard]] vk::DeviceAddress BufferDeviceAddress() const noexcept {
         ASSERT_MSG(bda_addr != 0, "Buffer device address not available");
         return bda_addr;
     }
 private:
     size_t size_bytes = 0;
-    VAddr cpu_addr = 0;
-    u64 bda_addr = 0;
+    void* cpu_addr = 0;
+    vk::DeviceAddress bda_addr = 0;
     const Vulkan::Instance* instance;
     Vulkan::Scheduler* scheduler;
     vk::Buffer buffer;
