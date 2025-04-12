@@ -142,6 +142,22 @@ SparseBuffer::SparseBuffer(const Vulkan::Instance& instance_, Vulkan::Scheduler&
     fence = fence_result.value;
 }
 
+SparseBuffer::~SparseBuffer() {
+    if (!buffer) {
+        return;
+    }
+    if (fence) {
+        instance->GetDevice().waitForFences(fence, VK_TRUE, UINT64_MAX);
+        instance->GetDevice().destroyFence(fence);
+    }
+    instance->GetDevice().destroyBuffer(buffer);
+    for (auto& [_, allocation] : allocations) {
+        if (allocation.allocation) {
+            vmaFreeMemory(instance->GetAllocator(), allocation.allocation);
+        }
+    }
+}
+
 void SparseBuffer::BindRegion(VAddr addr, u64 size) {
     if (size == 0) {
         return;
