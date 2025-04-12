@@ -13,15 +13,13 @@
 #include "video_core/amdgpu/resource.h"
 #include "video_core/renderer_vulkan/vk_common.h"
 
+#include <vk_mem_alloc.h>
+
 namespace Vulkan {
 class Instance;
 class Scheduler;
 } // namespace Vulkan
 
-VK_DEFINE_HANDLE(VmaAllocation)
-VK_DEFINE_HANDLE(VmaAllocator)
-
-struct VmaAllocationInfo;
 
 namespace VideoCore {
 
@@ -208,6 +206,84 @@ public:
 
     // Unbinds a region of the buffer. Alignment is handled internally.
     void UnbindRegion(VAddr addr, u64 size);
+
+    // Write data to the buffer. Alignment is handled internally.
+    template <typename T>
+    void WriteData(VAddr addr, std::span<const T> data) {
+        const size_t total_size = data.size_bytes();
+        const u8* p = static_cast<const u8*>(data.data());
+
+        VAddr start = Common::AlignDown(addr, mem_reqs.alignment);
+        VAddr end = Common::AlignDown(addr + total_size, mem_reqs.alignment);
+        VAddr final = addr + total_size;
+
+        auto it = allocations.find(start);
+
+        for (VAddr region = start; region <= end; region += mem_reqs.alignment, ++it) {
+            ASSERT_MSG(it != allocations.end()  && it->first == region, "Write to non bound address {:#x}", region);
+            Allocation& allocation = it->second;
+            ASSERT_MSG(allocation.mapped != nullptr, "Write to non host visible address {:#x}",
+                       region);
+
+            VAddr region_start = region;
+            VAddr region_end = region + mem_reqs.alignment;
+
+            VAddr copy_start = std::max(addr, region_start);
+            VAddr copy_end = std::min(final, region_end);
+
+            size_t offset = copy_start - region_start;
+            size_t copy_size = copy_end - copy_start;
+
+            u8* mapped = static_cast<u8*>(allocation.mapped);
+            std::memcpy(mapped + offset, p, copy_size);
+            p += copy_size;
+        }
+    }
+
+    template <typename T>
+    void WriteData(VAddr addr, const T& data) {
+        WriteData(addr, std::span<const T>{&data, 1});
+    }
+
+    template <typename T>
+    T ReadData(VAddr addr) {
+        T data{};
+        ReadData(addr, std::span<T>{&data, 1});
+        return data;
+    }
+
+    // Read data from the buffer. Alignment is handled internally.
+    template <typename T>
+    void ReadData(VAddr addr, std::span<T> data) {
+        const size_t total_size = data.size_bytes();
+        u8* p = reinterpret_cast<u8*>(std::addressof(data[0]));
+
+        VAddr start = Common::AlignDown(addr, mem_reqs.alignment);
+        VAddr end = Common::AlignDown(addr + total_size, mem_reqs.alignment);
+        VAddr final = addr + total_size;
+
+        auto it = allocations.find(start);
+
+        for (VAddr region = start; region <= end; region += mem_reqs.alignment, ++it) {
+            ASSERT_MSG(it != allocations.end()  && it->first == region, "Read from non bound address {:#x}", region);
+            Allocation& allocation = it->second;
+            ASSERT_MSG(allocation.mapped != nullptr, "Read from non host visible address {:#x}",
+                       region);
+
+            VAddr region_start = region;
+            VAddr region_end = region + mem_reqs.alignment;
+
+            VAddr copy_start = std::max(addr, region_start);
+            VAddr copy_end = std::min(final, region_end);
+
+            size_t offset = copy_start - region_start;
+            size_t copy_size = copy_end - copy_start;
+
+            u8* mapped = static_cast<u8*>(allocation.mapped);
+            std::memcpy(p, mapped + offset, copy_size);
+            p += copy_size;
+        }
+    }
 private:
     struct Allocation {
         VmaAllocation allocation;
