@@ -8,9 +8,7 @@
 #include "video_core/renderer_vulkan/liverpool_to_vk.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_platform.h"
-#include "video_core/renderer_vulkan/vk_scheduler.h"
-
-#include <vk_mem_alloc.h>
+#include "video_core/renderer_vulkan/vk_scheduler.h"    
 
 namespace VideoCore {
 
@@ -223,6 +221,7 @@ void SparseBuffer::UnbindRegion(VAddr addr, u64 size) {
     const auto aligned_end = Common::AlignUp(addr + size, mem_reqs.alignment);
 
     boost::container::small_vector<vk::SparseMemoryBind, 8> binds;
+    boost::container::small_vector<VAddr, 8> to_free;
 
     for (VAddr i = aligned_start; i < aligned_end; i += mem_reqs.alignment) {
         auto aligned_interval = boost::icl::interval<u64>::right_open(i, i + mem_reqs.alignment);
@@ -234,7 +233,7 @@ void SparseBuffer::UnbindRegion(VAddr addr, u64 size) {
             Allocation& allocation = it->second;
             ASSERT_MSG(allocation.allocation != nullptr, "Allocation already freed for address {:#x}",
                    i);
-            // Todo: Is it ok to free memory before unbinding?
+            to_free.push_back(i);
             vmaFreeMemory(instance->GetAllocator(), allocation.allocation);
             allocations.erase(it);
 
@@ -257,10 +256,21 @@ void SparseBuffer::UnbindRegion(VAddr addr, u64 size) {
             .bufferBindCount = 1,
             .pBufferBinds = &bind_info,
         };
-        // Todo: Do we need to wait here?
+        // Todo: Make sure if this pattern for waiting is correct.
         auto result = instance->GetGraphicsQueue().bindSparse(bind_sparse_info);
         ASSERT_MSG(result == vk::Result::eSuccess, "Failed binding sparse buffer with error {}",
-                   vk::to_string(result));
+               vk::to_string(result));
+        result = instance->GetDevice().waitForFences(fence, VK_TRUE, UINT64_MAX);
+        ASSERT_MSG(result == vk::Result::eSuccess, "Failed waiting for fence with error {}",
+               vk::to_string(result));
+        instance->GetDevice().resetFences(fence);
+
+        for (auto i : to_free) {
+            auto it = allocations.find(i);
+            Allocation& allocation = it->second;
+            vmaFreeMemory(instance->GetAllocator(), allocation.allocation);
+            allocations.erase(it);
+        }
     }
 }
 
