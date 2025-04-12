@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <boost/container/small_vector.hpp>
 #include "common/alignment.h"
 #include "common/assert.h"
 #include "video_core/buffer_cache/buffer.h"
@@ -110,6 +111,157 @@ Buffer::Buffer(const Vulkan::Instance& instance_, Vulkan::Scheduler& scheduler_,
         mapped_data = std::span<u8>{std::bit_cast<u8*>(alloc_info.pMappedData), size_bytes};
     }
     is_coherent = property_flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+}
+
+SparseBuffer::SparseBuffer(const Vulkan::Instance& instance_, Vulkan::Scheduler& scheduler_, MemoryUsage usage_,
+            vk::BufferUsageFlags flags, u64 size_bytes_)
+    : size_bytes{size_bytes_}, instance{&instance_}, scheduler{&scheduler_},
+      usage{usage_} {
+    
+    // Create buffer object and configure alignment.
+    const auto device = instance->GetDevice();
+    const vk::BufferCreateInfo buffer_ci = {
+        .flags = vk::BufferCreateFlagBits::eSparseBinding | vk::BufferCreateFlagBits::eSparseResidency,
+        .size = size_bytes,
+        .usage = flags,
+    };
+    auto buffer_result = device.createBuffer(buffer_ci);
+    ASSERT_MSG(buffer_result.result == vk::Result::eSuccess, "Failed creating sparse buffer with error {}",
+               vk::to_string(buffer_result.result));
+    buffer = buffer_result.value;
+    device.getBufferMemoryRequirements(buffer, &mem_reqs);
+    mem_reqs.size = mem_reqs.alignment;
+
+    Vulkan::SetObjectName(device, buffer, "Sparse Buffer {:#x}", size_bytes);
+
+    // Create wait fence.
+    vk::FenceCreateInfo fence_ci{
+        .flags = vk::FenceCreateFlagBits::eSignaled,
+    };
+    auto fence_result = device.createFence(fence_ci);
+    ASSERT_MSG(fence_result.result == vk::Result::eSuccess, "Failed creating fence with error {}",
+               vk::to_string(fence_result.result));
+    fence = fence_result.value;
+}
+
+void SparseBuffer::BindRegion(VAddr addr, u64 size) {
+    if (size == 0) {
+        return;
+    }
+
+    auto user_interval = boost::icl::interval<u64>::right_open(addr, addr + size);
+    user_regions += user_interval;
+
+    const auto aligned_start = Common::AlignUp(addr, mem_reqs.alignment);
+    const auto aligned_end = Common::AlignUp(addr + size, mem_reqs.alignment);  
+
+    VmaAllocationCreateInfo alloc_ci = {
+        .flags = VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT | MemoryUsageVmaFlags(usage),
+        .usage = MemoryUsageVma(usage),
+        .requiredFlags = 0,
+        .preferredFlags = MemoryUsagePreferredVmaFlags(usage),
+        .pool = VK_NULL_HANDLE,
+        .pUserData = nullptr,
+    };
+
+    boost::container::small_vector<vk::SparseMemoryBind, 8> binds;
+
+    for (VAddr i = aligned_start; i < aligned_end; i += mem_reqs.alignment) {
+        auto aligned_interval = boost::icl::interval<u64>::right_open(i, i + mem_reqs.alignment);
+        if (!boost::icl::intersects(user_regions - user_interval, aligned_interval)) {
+            bound_regions += aligned_interval;
+            
+            Allocation& allocation = allocations[i];
+            ASSERT_MSG(allocation.allocation == nullptr, "Allocation already exists for address {:#x}",
+                   i);
+            VmaAllocationInfo alloc_info{};
+            VkMemoryRequirements unsafe_mem_reqs = static_cast<VkMemoryRequirements>(mem_reqs);
+            vmaAllocateMemory(instance->GetAllocator(), &unsafe_mem_reqs, &alloc_ci, &allocation.allocation, 
+                              &alloc_info);
+            allocation.mapped = alloc_info.pMappedData;
+            allocation.device_memory = alloc_info.deviceMemory;
+
+            binds.push_back(vk::SparseMemoryBind{
+                .resourceOffset = i,
+                .size = mem_reqs.alignment,
+                .memory = allocation.device_memory,
+                .flags = vk::SparseMemoryBindFlags{},
+            });
+        }
+    }
+
+    if (!binds.empty()) {
+        vk::SparseBufferMemoryBindInfo bind_info{
+            .buffer = buffer,
+            .bindCount = static_cast<u32>(binds.size()),
+            .pBinds = binds.data(),
+        };
+        vk::BindSparseInfo bind_sparse_info{
+            .bufferBindCount = 1,
+            .pBufferBinds = &bind_info,
+        };
+        // Todo: Make sure if this pattern for waiting is correct.
+        auto result = instance->GetGraphicsQueue().bindSparse(bind_sparse_info, fence);
+        ASSERT_MSG(result == vk::Result::eSuccess, "Failed binding sparse buffer with error {}",
+               vk::to_string(result));
+        result = instance->GetDevice().waitForFences(fence, VK_TRUE, UINT64_MAX);
+        ASSERT_MSG(result == vk::Result::eSuccess, "Failed waiting for fence with error {}",
+               vk::to_string(result));
+        instance->GetDevice().resetFences(fence);
+    }
+}
+
+void SparseBuffer::UnbindRegion(VAddr addr, u64 size) {
+    if (size == 0) {
+        return;
+    }
+
+    auto user_interval = boost::icl::interval<u64>::right_open(addr, addr + size);
+    user_regions -= user_interval;
+
+    const auto aligned_start = Common::AlignUp(addr, mem_reqs.alignment);
+    const auto aligned_end = Common::AlignUp(addr + size, mem_reqs.alignment);
+
+    boost::container::small_vector<vk::SparseMemoryBind, 8> binds;
+
+    for (VAddr i = aligned_start; i < aligned_end; i += mem_reqs.alignment) {
+        auto aligned_interval = boost::icl::interval<u64>::right_open(i, i + mem_reqs.alignment);
+        if (boost::icl::intersects(user_regions, aligned_interval)) {
+            bound_regions -= aligned_interval;
+            
+            auto it = allocations.find(i);
+            ASSERT_MSG(it != allocations.end(), "Allocation not found for address {:#x}", i);
+            Allocation& allocation = it->second;
+            ASSERT_MSG(allocation.allocation != nullptr, "Allocation already freed for address {:#x}",
+                   i);
+            // Todo: Is it ok to free memory before unbinding?
+            vmaFreeMemory(instance->GetAllocator(), allocation.allocation);
+            allocations.erase(it);
+
+            binds.push_back(vk::SparseMemoryBind{
+                .resourceOffset = i,
+                .size = mem_reqs.alignment,
+                .memory = VK_NULL_HANDLE,
+                .flags = vk::SparseMemoryBindFlags{},
+            });
+        }
+    }
+
+    if (!binds.empty()) {
+        vk::SparseBufferMemoryBindInfo bind_info{
+            .buffer = buffer,
+            .bindCount = static_cast<u32>(binds.size()),
+            .pBinds = binds.data(),
+        };
+        vk::BindSparseInfo bind_sparse_info{
+            .bufferBindCount = 1,
+            .pBufferBinds = &bind_info,
+        };
+        // Todo: Do we need to wait here?
+        auto result = instance->GetGraphicsQueue().bindSparse(bind_sparse_info);
+        ASSERT_MSG(result == vk::Result::eSuccess, "Failed binding sparse buffer with error {}",
+                   vk::to_string(result));
+    }
 }
 
 constexpr u64 WATCHES_INITIAL_RESERVE = 0x4000;

@@ -7,6 +7,8 @@
 #include <optional>
 #include <utility>
 #include <vector>
+#include <boost/container/flat_map.hpp>
+#include <boost/icl/interval_set.hpp>
 #include "common/types.h"
 #include "video_core/amdgpu/resource.h"
 #include "video_core/renderer_vulkan/vk_common.h"
@@ -154,6 +156,79 @@ public:
         vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite |
         vk::AccessFlagBits2::eTransferRead | vk::AccessFlagBits2::eTransferWrite};
     vk::PipelineStageFlagBits2 stage{vk::PipelineStageFlagBits2::eAllCommands};
+};
+
+class SparseBuffer {
+public:
+    SparseBuffer(const Vulkan::Instance& instance, Vulkan::Scheduler& scheduler,
+                    MemoryUsage usage, vk::BufferUsageFlags flags, u64 size_bytes_);
+
+    SparseBuffer& operator=(const SparseBuffer&) = delete;
+    SparseBuffer(const SparseBuffer&) = delete;
+
+    SparseBuffer(SparseBuffer&& other) = default;
+    SparseBuffer& operator=(SparseBuffer&& other) = default;
+
+    /// Returns true when vaddr -> vaddr+size is fully contained in the buffer and it is bound
+    [[nodiscard]] bool IsInBounds(VAddr addr, u64 size) const noexcept;
+
+    size_t SizeBytes() const {
+        return size_bytes;
+    }
+
+    vk::Buffer Handle() const noexcept {
+        return buffer;
+    }
+
+    std::optional<vk::BufferMemoryBarrier2> GetBarrier(
+        vk::Flags<vk::AccessFlagBits2> dst_acess_mask, vk::PipelineStageFlagBits2 dst_stage,
+        u32 offset = 0) {
+        if (dst_acess_mask == access_mask && stage == dst_stage) {
+            return {};
+        }
+
+        DEBUG_ASSERT(offset < size_bytes);
+
+        auto barrier = vk::BufferMemoryBarrier2{
+            .srcStageMask = stage,
+            .srcAccessMask = access_mask,
+            .dstStageMask = dst_stage,
+            .dstAccessMask = dst_acess_mask,
+            .buffer = buffer,
+            .offset = offset,
+            .size = size_bytes - offset,
+        };
+        access_mask = dst_acess_mask;
+        stage = dst_stage;
+        return barrier;
+    }
+
+    // Binds a region of the buffer. Alignment is handled internally.
+    void BindRegion(VAddr addr, u64 size);
+
+    // Unbinds a region of the buffer. Alignment is handled internally.
+    void UnbindRegion(VAddr addr, u64 size);
+private:
+    struct Allocation {
+        VmaAllocation allocation;
+        vk::DeviceMemory device_memory;
+        void* mapped;
+    };
+
+    size_t size_bytes = 0;
+    const Vulkan::Instance* instance;
+    Vulkan::Scheduler* scheduler;
+    vk::Fence fence;
+    MemoryUsage usage;
+    vk::Buffer buffer;
+    vk::MemoryRequirements mem_reqs{};
+    vk::Flags<vk::AccessFlagBits2> access_mask{
+        vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite |
+        vk::AccessFlagBits2::eTransferRead | vk::AccessFlagBits2::eTransferWrite};
+        vk::PipelineStageFlagBits2 stage{vk::PipelineStageFlagBits2::eAllCommands};
+    boost::container::flat_map<VAddr, Allocation> allocations;
+    boost::icl::interval_set<u64> bound_regions;
+    boost::icl::interval_set<u64> user_regions;
 };
 
 class StreamBuffer : public Buffer {
