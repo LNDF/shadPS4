@@ -46,6 +46,19 @@ std::string_view BufferTypeName(MemoryUsage type) {
     return {};
 }
 
+[[nodiscard]] VmaMemoryUsage MemoryUsageNoAutoVma(MemoryUsage usage) {
+    switch (usage) {
+    case MemoryUsage::DeviceLocal:
+        return VMA_MEMORY_USAGE_GPU_ONLY;
+    case MemoryUsage::Stream:
+    case MemoryUsage::Upload:
+        return VMA_MEMORY_USAGE_CPU_TO_GPU;
+    case MemoryUsage::Download:
+        return VMA_MEMORY_USAGE_GPU_TO_CPU;
+    }
+    return VMA_MEMORY_USAGE_UNKNOWN;
+}
+
 [[nodiscard]] VmaMemoryUsage MemoryUsageVma(MemoryUsage usage) {
     switch (usage) {
     case MemoryUsage::DeviceLocal:
@@ -171,12 +184,12 @@ void SparseBuffer::BindRegion(vk::DeviceAddress addr, vk::DeviceSize size) {
     auto user_interval = boost::icl::interval<vk::DeviceAddress>::right_open(addr, addr + size);
     user_regions += user_interval;
 
-    const auto aligned_start = Common::AlignUp(addr, mem_reqs.alignment);
+    const auto aligned_start = Common::AlignDown(addr, mem_reqs.alignment);
     const auto aligned_end = Common::AlignUp(addr + size, mem_reqs.alignment);  
 
     VmaAllocationCreateInfo alloc_ci = {
         .flags = VMA_ALLOCATION_CREATE_WITHIN_BUDGET_BIT | MemoryUsageVmaFlags(usage),
-        .usage = MemoryUsageVma(usage),
+        .usage = MemoryUsageNoAutoVma(usage),
         .requiredFlags = 0,
         .preferredFlags = MemoryUsagePreferredVmaFlags(usage),
         .pool = VK_NULL_HANDLE,
@@ -238,7 +251,7 @@ void SparseBuffer::UnbindRegion(vk::DeviceAddress addr, vk::DeviceSize size) {
     auto user_interval = boost::icl::interval<vk::DeviceAddress>::right_open(addr, addr + size);
     user_regions -= user_interval;
 
-    const auto aligned_start = Common::AlignUp(addr, mem_reqs.alignment);
+    const auto aligned_start = Common::AlignDown(addr, mem_reqs.alignment);
     const auto aligned_end = Common::AlignUp(addr + size, mem_reqs.alignment);
 
     boost::container::small_vector<vk::SparseMemoryBind, 8> binds;
@@ -306,8 +319,9 @@ ImportedHostBuffer::ImportedHostBuffer(const Vulkan::Instance& instance_,
                "CPU address {:#x} is not aligned to {:#x}", cpu_addr, alignment);
     ASSERT_MSG(size_bytes % alignment == 0, "Size {:#x} is not aligned to {:#x}", size_bytes,
                alignment);
-
+    
     vk::ImportMemoryHostPointerInfoEXT import_info{
+        .handleType = vk::ExternalMemoryHandleTypeFlagBits::eHostAllocationEXT,
         .pHostPointer = reinterpret_cast<void*>(cpu_addr),
     };
     vk::BufferCreateInfo buffer_ci{
@@ -320,7 +334,7 @@ ImportedHostBuffer::ImportedHostBuffer(const Vulkan::Instance& instance_,
         .memoryTypeIndex = instance->GetMemoryTypeIndex(
             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent),
     };
-
+    
     auto buffer_result = instance->GetDevice().createBuffer(buffer_ci);
     ASSERT_MSG(buffer_result.result == vk::Result::eSuccess,
                "Failed creating imported host buffer with error {}",
@@ -343,6 +357,7 @@ ImportedHostBuffer::ImportedHostBuffer(const Vulkan::Instance& instance_,
             .buffer = buffer,
         };
         bda_addr = instance->GetDevice().getBufferAddress(bda_info);
+        ASSERT_MSG(bda_addr != 0, "Failed getting buffer device address");
     }
 }
 

@@ -37,8 +37,8 @@ Rasterizer::Rasterizer(const Instance& instance_, Scheduler& scheduler_,
                        AmdGpu::Liverpool* liverpool_)
     : instance{instance_}, scheduler{scheduler_}, page_manager{this},
       buffer_cache{instance, scheduler, liverpool_, texture_cache, page_manager},
-      texture_cache{instance, scheduler, buffer_cache, page_manager}, liverpool{liverpool_},
-      memory{Core::Memory::Instance()}, pipeline_cache{instance, scheduler, liverpool} {
+      texture_cache{instance, scheduler, buffer_cache, page_manager}, host_memory(instance, scheduler),
+      liverpool{liverpool_}, memory{Core::Memory::Instance()}, pipeline_cache{instance, scheduler, liverpool} {
     if (!Config::nullGpu()) {
         liverpool->BindRasterizer(this);
     }
@@ -937,11 +937,13 @@ bool Rasterizer::IsMapped(VAddr addr, u64 size) {
 void Rasterizer::MapMemory(VAddr addr, u64 size) {
     mapped_ranges += boost::icl::interval<VAddr>::right_open(addr, addr + size);
     page_manager.OnGpuMap(addr, size);
+    host_memory.Map(addr, size);
 }
 
 void Rasterizer::UnmapMemory(VAddr addr, u64 size) {
     buffer_cache.InvalidateMemory(addr, size);
     texture_cache.UnmapMemory(addr, size);
+    host_memory.Unmap(addr, size);
     page_manager.OnGpuUnmap(addr, size);
     mapped_ranges -= boost::icl::interval<VAddr>::right_open(addr, addr + size);
 }

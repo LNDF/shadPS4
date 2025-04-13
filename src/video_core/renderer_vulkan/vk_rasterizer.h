@@ -4,6 +4,7 @@
 #pragma once
 
 #include "video_core/buffer_cache/buffer_cache.h"
+#include "video_core/buffer_cache/host_memory_import.h"
 #include "video_core/page_manager.h"
 #include "video_core/renderer_vulkan/vk_pipeline_cache.h"
 #include "video_core/texture_cache/texture_cache.h"
@@ -103,6 +104,7 @@ private:
     VideoCore::PageManager page_manager;
     VideoCore::BufferCache buffer_cache;
     VideoCore::TextureCache texture_cache;
+    VideoCore::HostMemoryImport host_memory;
     AmdGpu::Liverpool* liverpool;
     Core::MemoryManager* memory;
     boost::icl::interval_set<VAddr> mapped_ranges;

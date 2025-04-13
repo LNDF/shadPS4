@@ -231,15 +231,15 @@ public:
     template <typename T>
     void WriteData(vk::DeviceAddress addr, std::span<const T> data) {
         const size_t total_size = data.size_bytes();
-        const u8* p = static_cast<const u8*>(data.data());
+        const u8* p = reinterpret_cast<const u8*>(data.data());
 
         vk::DeviceAddress start = Common::AlignDown(addr, mem_reqs.alignment);
-        vk::DeviceAddress end = Common::AlignDown(addr + total_size, mem_reqs.alignment);
+        vk::DeviceAddress end = Common::AlignUp(addr + total_size, mem_reqs.alignment);
         vk::DeviceAddress final = addr + total_size;
 
         auto it = allocations.find(start);
 
-        for (vk::DeviceAddress region = start; region <= end; region += mem_reqs.alignment, ++it) {
+        for (vk::DeviceAddress region = start; region < end; region += mem_reqs.alignment, ++it) {
             ASSERT_MSG(it != allocations.end()  && it->first == region, "Write to non bound address {:#x}", region);
             Allocation& allocation = it->second;
             ASSERT_MSG(allocation.mapped != nullptr, "Write to non host visible address {:#x}",
@@ -260,18 +260,6 @@ public:
         }
     }
 
-    template <typename T>
-    void WriteData(vk::DeviceAddress addr, const T& data) {
-        WriteData(addr, std::span<const T>{&data, 1});
-    }
-
-    template <typename T>
-    T ReadData(vk::DeviceAddress addr) {
-        T data{};
-        ReadData(addr, std::span<T>{&data, 1});
-        return data;
-    }
-
     // Read data from the buffer. Alignment is handled internally.
     template <typename T>
     void ReadData(vk::DeviceAddress addr, std::span<T> data) {
@@ -279,12 +267,12 @@ public:
         u8* p = reinterpret_cast<u8*>(std::addressof(data[0]));
 
         vk::DeviceAddress start = Common::AlignDown(addr, mem_reqs.alignment);
-        vk::DeviceAddress end = Common::AlignDown(addr + total_size, mem_reqs.alignment);
+        vk::DeviceAddress end = Common::AlignUp(addr + total_size, mem_reqs.alignment);
         vk::DeviceAddress final = addr + total_size;
 
         auto it = allocations.find(start);
 
-        for (vk::DeviceAddress region = start; region <= end; region += mem_reqs.alignment, ++it) {
+        for (vk::DeviceAddress region = start; region < end; region += mem_reqs.alignment, ++it) {
             ASSERT_MSG(it != allocations.end()  && it->first == region, "Read from non bound address {:#x}", region);
             Allocation& allocation = it->second;
             ASSERT_MSG(allocation.mapped != nullptr, "Read from non host visible address {:#x}",
@@ -356,23 +344,23 @@ public:
     }
 
     /// Returns the base CPU address of the buffer
-    [[nodiscard]] void* CpuAddr() const noexcept {
+    void* CpuAddr() const noexcept {
         return cpu_addr;
     }
 
     // Returns the handle to the Vulkan buffer
-    [[nodiscard]] vk::Buffer Handle() const noexcept {
+    vk::Buffer Handle() const noexcept {
         return buffer;
     }
 
     // Returns the size of the buffer in bytes
-    [[nodiscard]] size_t SizeBytes() const noexcept {
+    size_t SizeBytes() const noexcept {
         return size_bytes;
     }
 
     // Returns the Buffer Device Address of the buffer
-    [[nodiscard]] vk::DeviceAddress BufferDeviceAddress() const noexcept {
-        ASSERT_MSG(bda_addr != 0, "Buffer device address not available");
+    vk::DeviceAddress BufferDeviceAddress() const noexcept {
+        ASSERT_MSG(bda_addr != 0, "Can't get BDA from a non BDA buffer");
         return bda_addr;
     }
 private:
