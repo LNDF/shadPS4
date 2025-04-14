@@ -280,15 +280,7 @@ std::pair<Buffer*, u32> BufferCache::ObtainViewBuffer(VAddr gpu_addr, u32 size, 
             return {&buffer, buffer.Offset(gpu_addr)};
         }
     }
-    // If no buffer contains the full requested range but some buffer within was GPU-modified,
-    // fall back to ObtainBuffer to create a full buffer and avoid losing GPU modifications.
-    // This is only done if the request prefers to use GPU memory, otherwise we can skip it.
-    if (prefer_gpu && memory_tracker.IsRegionGpuModified(gpu_addr, size)) {
-        return ObtainBuffer(gpu_addr, size, false, false);
-    }
-    // In all other cases, just do a CPU copy to the staging buffer.
-    const u32 offset = staging_buffer.Copy(gpu_addr, size, 16);
-    return {&staging_buffer, offset};
+    UNREACHABLE_MSG("Can't obtain view of non-mapped buffer at {:#x} size {:#x}", gpu_addr, size);
 }
 
 bool BufferCache::IsRegionRegistered(VAddr addr, size_t size) {
@@ -326,166 +318,62 @@ BufferId BufferCache::FindBuffer(VAddr device_addr, u32 size) {
     }
     const u64 page = device_addr >> CACHING_PAGEBITS;
     const BufferId buffer_id = page_table[page];
-    if (!buffer_id) {
-        return CreateBuffer(device_addr, size);
+    if (buffer_id) {
+        Buffer& buffer = slot_buffers[buffer_id];
+        if (buffer.IsInBounds(device_addr, size)) {
+            return buffer_id;
+        }
     }
-    const Buffer& buffer = slot_buffers[buffer_id];
-    if (buffer.IsInBounds(device_addr, size)) {
-        return buffer_id;
-    }
-    return CreateBuffer(device_addr, size);
+    UNREACHABLE_MSG("Can't find non-mapped buffer at {:#x} size {:#x}", device_addr, size);
 }
 
-BufferCache::OverlapResult BufferCache::ResolveOverlaps(VAddr device_addr, u32 wanted_size) {
+void BufferCache::FlushCpuModifiedBuffers() {
+    // TODO
+}
+
+void BufferCache::MapBuffer(VAddr device_addr, u32 size) {
+    ASSERT_MSG(device_addr % CACHING_PAGESIZE == 0,
+               "Buffer address must be aligned to page size");
+    ASSERT_MSG(size % CACHING_PAGESIZE == 0,
+               "Buffer size must be aligned to page size");
+    ASSERT_MSG(!CheckOverlap(device_addr, size),
+               "Already oberlapping buffer at {:#x} size {:#x}", device_addr, size);
+    const BufferId new_buffer_id = [&] {
+        std::scoped_lock lk{mutex};
+        return slot_buffers.insert(instance, scheduler, MemoryUsage::DeviceLocal, device_addr,
+                                   AllFlags, size);
+    }();
+    auto& new_buffer = slot_buffers[new_buffer_id];
+    const auto cmdbuf = scheduler.CommandBuffer();
+    scheduler.EndRendering();
+    cmdbuf.fillBuffer(new_buffer.buffer, 0, size, 0);
+    Register(new_buffer_id);
+}
+
+void BufferCache::UnmapBuffer(BufferId buffer_id) {
+    Buffer& buffer = slot_buffers[buffer_id];
+    InvalidateMemory(buffer.CpuAddr(), buffer.SizeBytes());
+    Unregister(buffer_id);
+    scheduler.DeferOperation([this, buffer_id] { slot_buffers.erase(buffer_id); });
+    buffer.is_deleted = true;
+}
+
+bool BufferCache::CheckOverlap(VAddr device_addr, u32 wanted_size) {
     static constexpr int STREAM_LEAP_THRESHOLD = 16;
     boost::container::small_vector<BufferId, 16> overlap_ids;
     VAddr begin = device_addr;
     VAddr end = device_addr + wanted_size;
     int stream_score = 0;
     bool has_stream_leap = false;
-    const auto expand_begin = [&](VAddr add_value) {
-        static constexpr VAddr min_page = CACHING_PAGESIZE + DEVICE_PAGESIZE;
-        if (add_value > begin - min_page) {
-            begin = min_page;
-            device_addr = DEVICE_PAGESIZE;
-            return;
-        }
-        begin -= add_value;
-        device_addr = begin - CACHING_PAGESIZE;
-    };
-    const auto expand_end = [&](VAddr add_value) {
-        static constexpr VAddr max_page = 1ULL << MemoryTracker::MAX_CPU_PAGE_BITS;
-        if (add_value > max_page - end) {
-            end = max_page;
-            return;
-        }
-        end += add_value;
-    };
-    if (begin == 0) {
-        return OverlapResult{
-            .ids = std::move(overlap_ids),
-            .begin = begin,
-            .end = end,
-            .has_stream_leap = has_stream_leap,
-        };
-    }
     for (; device_addr >> CACHING_PAGEBITS < Common::DivCeil(end, CACHING_PAGESIZE);
          device_addr += CACHING_PAGESIZE) {
         const BufferId overlap_id = page_table[device_addr >> CACHING_PAGEBITS];
         if (!overlap_id) {
             continue;
         }
-        Buffer& overlap = slot_buffers[overlap_id];
-        if (overlap.is_picked) {
-            continue;
-        }
-        overlap_ids.push_back(overlap_id);
-        overlap.is_picked = true;
-        const VAddr overlap_device_addr = overlap.CpuAddr();
-        const bool expands_left = overlap_device_addr < begin;
-        if (expands_left) {
-            begin = overlap_device_addr;
-        }
-        const VAddr overlap_end = overlap_device_addr + overlap.SizeBytes();
-        const bool expands_right = overlap_end > end;
-        if (overlap_end > end) {
-            end = overlap_end;
-        }
-        stream_score += overlap.StreamScore();
-        if (stream_score > STREAM_LEAP_THRESHOLD && !has_stream_leap) {
-            // When this memory region has been joined a bunch of times, we assume it's being used
-            // as a stream buffer. Increase the size to skip constantly recreating buffers.
-            has_stream_leap = true;
-            if (expands_right) {
-                expand_begin(CACHING_PAGESIZE * 128);
-            }
-            if (expands_left) {
-                expand_end(CACHING_PAGESIZE * 128);
-            }
-        }
+        return true;
     }
-    return OverlapResult{
-        .ids = std::move(overlap_ids),
-        .begin = begin,
-        .end = end,
-        .has_stream_leap = has_stream_leap,
-    };
-}
-
-void BufferCache::JoinOverlap(BufferId new_buffer_id, BufferId overlap_id,
-                              bool accumulate_stream_score) {
-    Buffer& new_buffer = slot_buffers[new_buffer_id];
-    Buffer& overlap = slot_buffers[overlap_id];
-    if (accumulate_stream_score) {
-        new_buffer.IncreaseStreamScore(overlap.StreamScore() + 1);
-    }
-    const size_t dst_base_offset = overlap.CpuAddr() - new_buffer.CpuAddr();
-    const vk::BufferCopy copy = {
-        .srcOffset = 0,
-        .dstOffset = dst_base_offset,
-        .size = overlap.SizeBytes(),
-    };
-    scheduler.EndRendering();
-    const auto cmdbuf = scheduler.CommandBuffer();
-
-    boost::container::static_vector<vk::BufferMemoryBarrier2, 2> pre_barriers{};
-    if (auto src_barrier = overlap.GetBarrier(vk::AccessFlagBits2::eTransferRead,
-                                              vk::PipelineStageFlagBits2::eTransfer)) {
-        pre_barriers.push_back(*src_barrier);
-    }
-    if (auto dst_barrier =
-            new_buffer.GetBarrier(vk::AccessFlagBits2::eTransferWrite,
-                                  vk::PipelineStageFlagBits2::eTransfer, dst_base_offset)) {
-        pre_barriers.push_back(*dst_barrier);
-    }
-    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
-        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
-        .bufferMemoryBarrierCount = static_cast<u32>(pre_barriers.size()),
-        .pBufferMemoryBarriers = pre_barriers.data(),
-    });
-
-    cmdbuf.copyBuffer(overlap.Handle(), new_buffer.Handle(), copy);
-
-    boost::container::static_vector<vk::BufferMemoryBarrier2, 2> post_barriers{};
-    if (auto src_barrier =
-            overlap.GetBarrier(vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite,
-                               vk::PipelineStageFlagBits2::eAllCommands)) {
-        post_barriers.push_back(*src_barrier);
-    }
-    if (auto dst_barrier = new_buffer.GetBarrier(
-            vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite,
-            vk::PipelineStageFlagBits2::eAllCommands, dst_base_offset)) {
-        post_barriers.push_back(*dst_barrier);
-    }
-    cmdbuf.pipelineBarrier2(vk::DependencyInfo{
-        .dependencyFlags = vk::DependencyFlagBits::eByRegion,
-        .bufferMemoryBarrierCount = static_cast<u32>(post_barriers.size()),
-        .pBufferMemoryBarriers = post_barriers.data(),
-    });
-    DeleteBuffer(overlap_id);
-}
-
-BufferId BufferCache::CreateBuffer(VAddr device_addr, u32 wanted_size) {
-    const VAddr device_addr_end = Common::AlignUp(device_addr + wanted_size, CACHING_PAGESIZE);
-    device_addr = Common::AlignDown(device_addr, CACHING_PAGESIZE);
-    wanted_size = static_cast<u32>(device_addr_end - device_addr);
-    const OverlapResult overlap = ResolveOverlaps(device_addr, wanted_size);
-    const u32 size = static_cast<u32>(overlap.end - overlap.begin);
-    const BufferId new_buffer_id = [&] {
-        std::scoped_lock lk{mutex};
-        return slot_buffers.insert(instance, scheduler, MemoryUsage::DeviceLocal, overlap.begin,
-                                   AllFlags, size);
-    }();
-    auto& new_buffer = slot_buffers[new_buffer_id];
-    const size_t size_bytes = new_buffer.SizeBytes();
-    const auto cmdbuf = scheduler.CommandBuffer();
-    scheduler.EndRendering();
-    cmdbuf.fillBuffer(new_buffer.buffer, 0, size_bytes, 0);
-    for (const BufferId overlap_id : overlap.ids) {
-        JoinOverlap(new_buffer_id, overlap_id, !overlap.has_stream_leap);
-    }
-    Register(new_buffer_id);
-    return new_buffer_id;
+    return false;
 }
 
 void BufferCache::Register(BufferId buffer_id) {
@@ -687,13 +575,6 @@ bool BufferCache::SynchronizeBufferFromImage(Buffer& buffer, VAddr device_addr, 
         });
     }
     return true;
-}
-
-void BufferCache::DeleteBuffer(BufferId buffer_id) {
-    Buffer& buffer = slot_buffers[buffer_id];
-    Unregister(buffer_id);
-    scheduler.DeferOperation([this, buffer_id] { slot_buffers.erase(buffer_id); });
-    buffer.is_deleted = true;
 }
 
 } // namespace VideoCore

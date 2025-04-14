@@ -38,14 +38,14 @@ class TextureCache;
 
 class BufferCache {
 public:
-    static constexpr u32 CACHING_PAGEBITS = 12;
+    static constexpr u32 CACHING_PAGEBITS = 14;
     static constexpr u64 CACHING_PAGESIZE = u64{1} << CACHING_PAGEBITS;
-    static constexpr u64 DEVICE_PAGESIZE = 4_KB;
+    // static constexpr u64 DEVICE_PAGESIZE = 16_KB;
 
     struct Traits {
         using Entry = BufferId;
         static constexpr size_t AddressSpaceBits = 40;
-        static constexpr size_t FirstLevelBits = 14;
+        static constexpr size_t FirstLevelBits = 16; // Increesed this because now cache size is 16 KB pages
         static constexpr size_t PageBits = CACHING_PAGEBITS;
     };
     using PageTable = MultiLevelPageTable<Traits>;
@@ -110,6 +110,12 @@ public:
 
     [[nodiscard]] BufferId FindBuffer(VAddr device_addr, u32 size);
 
+    void FlushCpuModifiedBuffers();
+
+    void MapBuffer(VAddr device_addr, u32 size);
+
+    void UnmapBuffer(BufferId buffer_id);
+
 private:
     template <typename Func>
     void ForEachBufferInRange(VAddr device_addr, u64 size, Func&& func) {
@@ -130,11 +136,7 @@ private:
 
     void DownloadBufferMemory(Buffer& buffer, VAddr device_addr, u64 size);
 
-    [[nodiscard]] OverlapResult ResolveOverlaps(VAddr device_addr, u32 wanted_size);
-
-    void JoinOverlap(BufferId new_buffer_id, BufferId overlap_id, bool accumulate_stream_score);
-
-    [[nodiscard]] BufferId CreateBuffer(VAddr device_addr, u32 wanted_size);
+    [[nodiscard]] bool CheckOverlap(VAddr device_addr, u32 wanted_size);
 
     void Register(BufferId buffer_id);
 
@@ -146,8 +148,6 @@ private:
     void SynchronizeBuffer(Buffer& buffer, VAddr device_addr, u32 size, bool is_texel_buffer);
 
     bool SynchronizeBufferFromImage(Buffer& buffer, VAddr device_addr, u32 size);
-
-    void DeleteBuffer(BufferId buffer_id);
 
     const Vulkan::Instance& instance;
     Vulkan::Scheduler& scheduler;

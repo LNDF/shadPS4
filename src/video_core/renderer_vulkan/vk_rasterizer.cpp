@@ -936,11 +936,14 @@ bool Rasterizer::IsMapped(VAddr addr, u64 size) {
 
 void Rasterizer::MapMemory(VAddr addr, u64 size) {
     mapped_ranges += boost::icl::interval<VAddr>::right_open(addr, addr + size);
+    buffer_cache.MapBuffer(addr, size);
     page_manager.OnGpuMap(addr, size);
 }
 
 void Rasterizer::UnmapMemory(VAddr addr, u64 size) {
-    buffer_cache.InvalidateMemory(addr, size);
+    VideoCore::BufferId buffer_id = buffer_cache.FindBuffer(addr, size);
+    ASSERT_MSG(buffer_id, "Unmapping non-mapped memory: {:#x}", addr);
+    buffer_cache.UnmapBuffer(buffer_id);
     texture_cache.UnmapMemory(addr, size);
     page_manager.OnGpuUnmap(addr, size);
     mapped_ranges -= boost::icl::interval<VAddr>::right_open(addr, addr + size);
