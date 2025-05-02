@@ -317,11 +317,22 @@ public:
     /// Waits for the given tick to trigger on the GPU.
     void Wait(u64 tick);
 
+    /// Runs all pending operations that are ready
+    void ProcessPendingOperations();
+
+    /// Returns, if present, the tick of the next deferred operation.
+    [[nodiscard]] std::optional<u64> PendingTick() const;
+
     /// Starts a new rendering scope with provided state.
     void BeginRendering(const RenderState& new_state);
 
     /// Ends current rendering scope.
     void EndRendering();
+
+    /// Refresh the master semaphore.
+    void Refresh() {
+        master_semaphore.Refresh();
+    }
 
     /// Returns the current render state.
     const RenderState& GetRenderState() const {
@@ -354,6 +365,7 @@ public:
 
     /// Defers an operation until the gpu has reached the current cpu tick.
     void DeferOperation(Common::UniqueFunction<void>&& func) {
+        std::scoped_lock lock{pending_ops_mutex};
         pending_ops.emplace(std::move(func), CurrentTick());
     }
 
@@ -375,6 +387,7 @@ private:
         u64 gpu_tick;
     };
     std::queue<PendingOp> pending_ops;
+    mutable std::mutex pending_ops_mutex;
     RenderState render_state;
     DynamicState dynamic_state;
     bool is_rendering = false;

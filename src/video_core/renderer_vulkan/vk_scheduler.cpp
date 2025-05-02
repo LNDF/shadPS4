@@ -91,11 +91,26 @@ void Scheduler::Wait(u64 tick) {
     }
     master_semaphore.Wait(tick);
 
-    // Only apply pending operations until the current tick.
-    while (!pending_ops.empty() && pending_ops.front().gpu_tick <= tick) {
+    // Run any pending operations that are ready.
+    master_semaphore.Refresh();
+    ProcessPendingOperations();
+}
+
+void Scheduler::ProcessPendingOperations() {
+    RENDERER_TRACE;
+    std::scoped_lock lock{pending_ops_mutex};
+    while (!pending_ops.empty() && IsFree(pending_ops.front().gpu_tick)) {
         pending_ops.front().callback();
         pending_ops.pop();
     }
+}
+
+std::optional<u64> Scheduler::PendingTick() const {
+    std::scoped_lock lock{pending_ops_mutex};
+    if (pending_ops.empty()) {
+        return std::nullopt;
+    }
+    return pending_ops.front().gpu_tick;
 }
 
 void Scheduler::AllocateWorkerCommandBuffers() {
@@ -171,11 +186,7 @@ void Scheduler::SubmitExecution(SubmitInfo& info) {
     master_semaphore.Refresh();
     AllocateWorkerCommandBuffers();
 
-    // Apply pending operations
-    while (!pending_ops.empty() && IsFree(pending_ops.front().gpu_tick)) {
-        pending_ops.front().callback();
-        pending_ops.pop();
-    }
+    ProcessPendingOperations();
 }
 
 void DynamicState::Commit(const Instance& instance, const vk::CommandBuffer& cmdbuf) {
