@@ -69,11 +69,6 @@ Liverpool::Liverpool() {
 }
 
 Liverpool::~Liverpool() {
-    if (rasterizer) {
-        watchdog_thread.request_stop();
-        watchdog_thread.join();
-    }
-
     process_thread.request_stop();
     process_thread.join();
 }
@@ -81,8 +76,10 @@ Liverpool::~Liverpool() {
 void Liverpool::BindRasterizer(Vulkan::Rasterizer* rasterizer_) {
     rasterizer = rasterizer_;
 
-    // Start the watchdog thread
-    watchdog_thread = std::jthread{std::bind_front(&Liverpool::Watchdog, this)};
+    // Add submit waiter to the rasterizer scheduler
+    if (rasterizer) {
+        rasterizer->GetScheduler().AddPendingOpWaiter(&submit_cv);
+    }
 }
 
 void Liverpool::DeferOperation(Common::UniqueFunction<void>&& func) {
@@ -98,43 +95,41 @@ void Liverpool::Process(std::stop_token stoken) {
     Common::SetCurrentThreadName("shadPS4:GpuCommandProcessor");
 
     const auto wait_pred = [this] {
-        return num_commands || num_submits || submit_done || pending_ops;
+        bool r = num_commands || num_submits || submit_done;
+        if (rasterizer) {
+            r |= rasterizer->GetScheduler().PendingOperationsReady();
+        }
+        return r;
+    };
+
+    const auto process_pending_ops = [this] {
+        RENDERER_TRACE;
+        if (rasterizer) {
+            rasterizer->GetScheduler().ProcessPendingOperations();
+        }
     };
 
     while (!stoken.stop_requested()) {
-        if (!wait_pred()) {
-            // If we don't have any work, signal the watchdog thread
-            // for the defferred operations to be processed
-            run_watchdog = true;
-            process_cv.notify_all();
-        }
-
         {
-            std::unique_lock lk{process_mutex};
-            Common::CondvarWait(process_cv, lk, stoken, wait_pred);
+            std::unique_lock lk{submit_mutex};
+            Common::CondvarWait(submit_cv, lk, stoken, wait_pred);
         }
         if (stoken.stop_requested()) {
             break;
         }
-        run_watchdog = false;
-        pending_ops = false;
 
         VideoCore::StartCapture();
 
         curr_qid = -1;
 
         while (num_submits || num_commands) {
-            // Process any pending operations that are ready.
-            if (rasterizer) {
-                rasterizer->GetScheduler().Refresh();
-                rasterizer->GetScheduler().ProcessPendingOperations();
-            }
+            process_pending_ops();
 
             // Process incoming commands with high priority
             while (num_commands) {
                 Common::UniqueFunction<void> callback{};
                 {
-                    std::unique_lock lk{process_mutex};
+                    std::unique_lock lk{submit_mutex};
                     callback = std::move(command_queue.front());
                     command_queue.pop();
                     --num_commands;
@@ -163,8 +158,8 @@ void Liverpool::Process(std::stop_token stoken) {
                 queue.submits.pop();
 
                 --num_submits;
-                std::scoped_lock lock2{process_mutex};
-                process_cv.notify_all();
+                std::scoped_lock lock2{submit_mutex};
+                submit_cv.notify_all();
             }
         }
 
@@ -178,37 +173,9 @@ void Liverpool::Process(std::stop_token stoken) {
             submit_done = false;
         }
 
+        process_pending_ops();
+
         Platform::IrqC::Instance()->Signal(Platform::InterruptId::GpuIdle);
-    }
-}
-
-void Liverpool::Watchdog(std::stop_token stoken) {
-    Common::SetCurrentThreadName("shadPS4:GpuWatchdog");
-    auto& scheduler = rasterizer->GetScheduler();
-
-    while (!stoken.stop_requested()) {
-        {
-            std::unique_lock lk{process_mutex};
-            Common::CondvarWait(process_cv, lk, stoken,
-                           [this] { return run_watchdog.load(); });
-        }
-
-        if (stoken.stop_requested()) {
-            break;
-        }
-
-        auto pending_tick = scheduler.PendingTick();
-        if (!pending_tick) {
-            // No pending operations. We can sleep.
-            run_watchdog = false;
-            continue;
-        }
-
-        // Wait for the pending tick and signal process thread
-        scheduler.Wait(*pending_tick);
-        pending_ops = true;
-        run_watchdog = false;
-        process_cv.notify_all();
     }
 }
 
@@ -655,14 +622,12 @@ Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb, std::span<c
                 break;
             }
             case PM4ItOpcode::EventWriteEop: {
-                const auto event_eop = *reinterpret_cast<const PM4CmdEventWriteEop*>(header);
-                DeferOperation([event_eop = std::move(event_eop)]() {
-                    event_eop.SignalFence([](void* address, u64 data, u32 num_bytes) {
-                        auto* memory = Core::Memory::Instance();
-                        if (!memory->TryWriteBacking(address, &data, num_bytes)) {
-                            memcpy(address, &data, num_bytes);
-                        }
-                    });
+                const auto event_eop = reinterpret_cast<const PM4CmdEventWriteEop*>(header);
+                event_eop->SignalFence(this, [](void* address, u64 data, u32 num_bytes) {
+                    auto* memory = Core::Memory::Instance();
+                    if (!memory->TryWriteBacking(address, &data, num_bytes)) {
+                        memcpy(address, &data, num_bytes);
+                    }
                 });
                 break;
             }
@@ -1060,9 +1025,9 @@ void Liverpool::SubmitGfx(std::span<const u32> dcb, std::span<const u32> ccb) {
         queue.submits.emplace(task.handle);
     }
 
-    std::scoped_lock lk{process_mutex};
+    std::scoped_lock lk{submit_mutex};
     ++num_submits;
-    process_cv.notify_all();
+    submit_cv.notify_all();
 }
 
 void Liverpool::SubmitAsc(u32 gnm_vqid, std::span<const u32> acb) {
@@ -1076,10 +1041,10 @@ void Liverpool::SubmitAsc(u32 gnm_vqid, std::span<const u32> acb) {
         queue.submits.emplace(task.handle);
     }
 
-    std::scoped_lock lk{process_mutex};
+    std::scoped_lock lk{submit_mutex};
     num_mapped_queues = std::max(num_mapped_queues, gnm_vqid + 1);
     ++num_submits;
-    process_cv.notify_all();
+    submit_cv.notify_all();
 }
 
 } // namespace AmdGpu

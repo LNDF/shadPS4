@@ -4,6 +4,7 @@
 #include <mutex>
 #include "common/assert.h"
 #include "common/debug.h"
+#include "common/thread.h"
 #include "imgui/renderer/texture_manager.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
@@ -18,9 +19,13 @@ Scheduler::Scheduler(const Instance& instance)
     profiler_scope = reinterpret_cast<tracy::VkCtxScope*>(std::malloc(sizeof(tracy::VkCtxScope)));
 #endif
     AllocateWorkerCommandBuffers();
+
+    pending_ops_waiter_thread = std::jthread(std::bind_front(&Scheduler::PendingOpWaiter, this));
 }
 
 Scheduler::~Scheduler() {
+    pending_ops_waiter_thread.request_stop();
+    pending_ops_waiter_thread.join();
 #if TRACY_GPU_ENABLED
     std::free(profiler_scope);
 #endif
@@ -65,52 +70,56 @@ void Scheduler::EndRendering() {
     current_cmdbuf.endRendering();
 }
 
-void Scheduler::Flush(SubmitInfo& info) {
+void Scheduler::Flush(SubmitInfo& info, bool automatic) {
     // When flushing, we only send data to the driver; no waiting is necessary.
-    SubmitExecution(info);
-}
-
-void Scheduler::Flush() {
-    SubmitInfo info{};
-    Flush(info);
+    SubmitExecution(info, automatic);
 }
 
 void Scheduler::Finish() {
     // When finishing, we need to wait for the submission to have executed on the device.
     const u64 presubmit_tick = CurrentTick();
     SubmitInfo info{};
-    SubmitExecution(info);
+    SubmitExecution(info, true);
     Wait(presubmit_tick);
 }
 
-void Scheduler::Wait(u64 tick) {
+void Scheduler::Wait(u64 tick, bool process_pendings) {
+    RENDERER_TRACE;
     if (tick >= master_semaphore.CurrentTick()) {
         // Make sure we are not waiting for the current tick without signalling
         SubmitInfo info{};
-        Flush(info);
+        Flush(info, true);
     }
     master_semaphore.Wait(tick);
 
-    // Run any pending operations that are ready.
-    master_semaphore.Refresh();
-    ProcessPendingOperations();
+    if (!process_pendings) {
+        return;
+    }
+
+    // Only apply pending operations until the current tick.
+    {
+        std::scoped_lock lock{pending_ops_mutex};
+        AdvancePendingOpsReadyCursor(tick);
+        auto it = pending_ops_ready.begin();
+        while (it != pending_ops_ready.end() && it->gpu_tick <= tick) {
+            it->callback();
+            ++it;
+        }
+        pending_ops_ready.erase(pending_ops_ready.begin(), it);
+    }
 }
 
 void Scheduler::ProcessPendingOperations() {
-    RENDERER_TRACE;
     std::scoped_lock lock{pending_ops_mutex};
-    while (!pending_ops.empty() && IsFree(pending_ops.front().gpu_tick)) {
-        pending_ops.front().callback();
-        pending_ops.pop();
+    for (auto& op : pending_ops_ready) {
+        op.callback();
     }
+    pending_ops_ready.clear();
 }
 
-std::optional<u64> Scheduler::PendingTick() const {
+bool Scheduler::PendingOperationsReady() const {
     std::scoped_lock lock{pending_ops_mutex};
-    if (pending_ops.empty()) {
-        return std::nullopt;
-    }
-    return pending_ops.front().gpu_tick;
+    return !pending_ops_ready.empty();
 }
 
 void Scheduler::AllocateWorkerCommandBuffers() {
@@ -136,7 +145,16 @@ void Scheduler::AllocateWorkerCommandBuffers() {
 #endif
 }
 
-void Scheduler::SubmitExecution(SubmitInfo& info) {
+void Scheduler::CommitPendingOperations(u64 tick) {
+    std::scoped_lock lock{pending_ops_mutex};
+    for (auto& op : uncomitted_pending_ops) {
+        pending_ops.emplace_back(std::move(op), tick);
+    }
+    uncomitted_pending_ops.clear();
+    pending_ops_cv.notify_one();
+}
+
+void Scheduler::SubmitExecution(SubmitInfo& info, bool automatic) {
     std::scoped_lock lk{submit_mutex};
     const u64 signal_value = master_semaphore.NextTick();
 
@@ -183,9 +201,13 @@ void Scheduler::SubmitExecution(SubmitInfo& info) {
     auto submit_result = instance.GetGraphicsQueue().submit(submit_info, info.fence);
     ASSERT_MSG(submit_result != vk::Result::eErrorDeviceLost, "Device lost during submit");
 
-    master_semaphore.Refresh();
+    Refresh();
     AllocateWorkerCommandBuffers();
 
+    if (!automatic) {
+        // Only commit pending operations if we explicitly flushed.
+        CommitPendingOperations(signal_value);
+    }
     ProcessPendingOperations();
 }
 
@@ -332,6 +354,49 @@ void DynamicState::Commit(const Instance& instance, const vk::CommandBuffer& cmd
         dirty_state.color_write_masks = false;
         if (instance.IsDynamicColorWriteMaskSupported()) {
             cmdbuf.setColorWriteMaskEXT(0, color_write_masks);
+        }
+    }
+}
+
+void Scheduler::AdvancePendingOpsReadyCursor(u64 tick) {
+    // This doesn't "advance" anything. Right now, it only moves
+    // elements from pending_ops to pending_ops_ready.
+    auto it = pending_ops.begin();
+    while (it != pending_ops.end() && it->gpu_tick <= tick) {
+        pending_ops_ready.push_back(std::move(*it));
+        ++it;
+    }
+    pending_ops.erase(pending_ops.begin(), it);
+}
+
+void Scheduler::PendingOpWaiter(std::stop_token stoken) {
+    Common::SetCurrentThreadName("shadPS4:SchedulerWaiter");
+    
+    auto pred = [this] {
+        return !pending_ops.empty() && pending_ops.front().gpu_tick < CurrentTick();
+    };
+
+    while (!stoken.stop_requested()) {
+        {
+            std::unique_lock lock{pending_ops_mutex};
+            Common::CondvarWait(pending_ops_cv, lock, stoken, pred);
+        }
+        if (stoken.stop_requested()) {
+            break;
+        }
+
+        auto tick = pending_ops.front().gpu_tick;
+
+        // We wait so that the master semaphore is refreshed
+        Wait(tick, false);
+
+        // Advance the cursor and notify
+        {
+            std::scoped_lock lock{pending_ops_mutex};
+            AdvancePendingOpsReadyCursor(master_semaphore.KnownGpuTick());
+        }
+        for (auto waiter : pending_ops_waiters) {
+            waiter->notify_all();
         }
     }
 }

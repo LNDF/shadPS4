@@ -6,6 +6,7 @@
 #include <condition_variable>
 #include <boost/container/static_vector.hpp>
 #include "common/types.h"
+#include "common/polyfill_thread.h"
 #include "common/unique_function.h"
 #include "video_core/amdgpu/liverpool.h"
 #include "video_core/renderer_vulkan/vk_master_semaphore.h"
@@ -305,23 +306,19 @@ public:
 
     /// Sends the current execution context to the GPU
     /// and increments the scheduler timeline semaphore.
-    void Flush(SubmitInfo& info);
-
-    /// Sends the current execution context to the GPU
-    /// and increments the scheduler timeline semaphore.
-    void Flush();
+    void Flush(SubmitInfo& info, bool automatic = false);
 
     /// Sends the current execution context to the GPU and waits for it to complete.
     void Finish();
 
     /// Waits for the given tick to trigger on the GPU.
-    void Wait(u64 tick);
+    void Wait(u64 tick, bool wait = true);
 
     /// Runs all pending operations that are ready
     void ProcessPendingOperations();
 
-    /// Returns, if present, the tick of the next deferred operation.
-    [[nodiscard]] std::optional<u64> PendingTick() const;
+    /// Returns true if there are pending operations ready
+    [[nodiscard]] bool PendingOperationsReady() const;
 
     /// Starts a new rendering scope with provided state.
     void BeginRendering(const RenderState& new_state);
@@ -332,6 +329,10 @@ public:
     /// Refresh the master semaphore.
     void Refresh() {
         master_semaphore.Refresh();
+        {
+            std::scoped_lock lock{pending_ops_mutex};
+            AdvancePendingOpsReadyCursor(master_semaphore.KnownGpuTick());
+        }
     }
 
     /// Returns the current render state.
@@ -365,8 +366,12 @@ public:
 
     /// Defers an operation until the gpu has reached the current cpu tick.
     void DeferOperation(Common::UniqueFunction<void>&& func) {
-        std::scoped_lock lock{pending_ops_mutex};
-        pending_ops.emplace(std::move(func), CurrentTick());
+        uncomitted_pending_ops.emplace_back(std::move(func));
+    }
+
+    /// Add a waiter to the pending operations.
+    void AddPendingOpWaiter(std::condition_variable_any* waiter) {
+        pending_ops_waiters.emplace_back(waiter);
     }
 
     static std::mutex submit_mutex;
@@ -374,7 +379,13 @@ public:
 private:
     void AllocateWorkerCommandBuffers();
 
-    void SubmitExecution(SubmitInfo& info);
+    void CommitPendingOperations(u64 tick);
+
+    void SubmitExecution(SubmitInfo& info, bool automatic);
+
+    void AdvancePendingOpsReadyCursor(u64 tick);
+
+    void PendingOpWaiter(std::stop_token stoken);
 
 private:
     const Instance& instance;
@@ -386,7 +397,15 @@ private:
         Common::UniqueFunction<void> callback;
         u64 gpu_tick;
     };
-    std::queue<PendingOp> pending_ops;
+    std::deque<Common::UniqueFunction<void>> uncomitted_pending_ops;
+    std::deque<PendingOp> pending_ops;
+    // We should be using a circular buffer here, but we dont
+    // have boost::circular_buffer available and I don't feel like
+    // implementing one right now.
+    std::deque<PendingOp> pending_ops_ready;
+    std::condition_variable_any pending_ops_cv;
+    std::vector<std::condition_variable_any*> pending_ops_waiters;
+    std::jthread pending_ops_waiter_thread;
     mutable std::mutex pending_ops_mutex;
     RenderState render_state;
     DynamicState dynamic_state;

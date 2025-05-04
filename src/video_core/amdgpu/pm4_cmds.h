@@ -8,6 +8,7 @@
 #include "common/rdtsc.h"
 #include "common/types.h"
 #include "core/platform.h"
+#include "video_core/amdgpu/liverpool.h"
 #include "video_core/amdgpu/pm4_opcodes.h"
 
 namespace AmdGpu {
@@ -318,7 +319,7 @@ struct PM4CmdEventWriteEop {
         return data_lo | u64(data_hi) << 32;
     }
 
-    void SignalFence(auto&& write_mem) const {
+    void SignalFence(Liverpool* liverpool, auto&& write_mem) const {
         u32* address = Address<u32>();
         switch (data_sel.Value()) {
         case DataSelect::None: {
@@ -354,7 +355,10 @@ struct PM4CmdEventWriteEop {
             ASSERT(data_sel == DataSelect::None);
             [[fallthrough]];
         case InterruptSelect::IrqWhenWriteConfirm: {
-            Platform::IrqC::Instance()->Signal(Platform::InterruptId::GfxEop);
+            // Idealy, we should also defer the memory write.
+            // But for that, we would need to also adjust wait_reg_mem
+            liverpool->DeferOperation(
+                []() { Platform::IrqC::Instance()->Signal(Platform::InterruptId::GfxEop); });
             break;
         }
         default: {

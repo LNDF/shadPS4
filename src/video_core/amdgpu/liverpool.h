@@ -1458,16 +1458,16 @@ public:
     void SubmitAsc(u32 gnm_vqid, std::span<const u32> acb);
 
     void SubmitDone() noexcept {
-        std::scoped_lock lk{process_mutex};
+        std::scoped_lock lk{submit_mutex};
         mapped_queues[GfxQueueId].ccb_buffer_offset = 0;
         mapped_queues[GfxQueueId].dcb_buffer_offset = 0;
         submit_done = true;
-        process_cv.notify_all();
+        submit_cv.notify_all();
     }
 
     void WaitGpuIdle() noexcept {
-        std::unique_lock lk{process_mutex};
-        process_cv.wait(lk, [this] { return num_submits == 0; });
+        std::unique_lock lk{submit_mutex};
+        submit_cv.wait(lk, [this] { return num_submits == 0; });
     }
 
     bool IsGpuIdle() const {
@@ -1481,10 +1481,10 @@ public:
     void BindRasterizer(Vulkan::Rasterizer* rasterizer_);
 
     void SendCommand(Common::UniqueFunction<void>&& func) {
-        std::scoped_lock lk{process_mutex};
+        std::scoped_lock lk{submit_mutex};
         command_queue.emplace(std::move(func));
         ++num_commands;
-        process_cv.notify_all();
+        submit_cv.notify_all();
     }
 
     void reserveCopyBufferSpace() {
@@ -1499,6 +1499,8 @@ public:
     inline ComputeProgram& GetCsRegs() {
         return mapped_queues[curr_qid].cs_state;
     }
+
+    void DeferOperation(Common::UniqueFunction<void>&& func);
 
     struct AscQueueInfo {
         static constexpr size_t Pm4BufferSize = 1024;
@@ -1551,8 +1553,6 @@ private:
     template <bool is_indirect = false>
     Task ProcessCompute(const u32* acb, u32 acb_dwords, u32 vqid);
 
-    void DeferOperation(Common::UniqueFunction<void>&& func);
-
     void Process(std::stop_token stoken);
 
     void Watchdog(std::stop_token stoken);
@@ -1592,14 +1592,11 @@ private:
     Vulkan::Rasterizer* rasterizer{};
     Libraries::VideoOut::VideoOutPort* vo_port{};
     std::jthread process_thread{};
-    std::jthread watchdog_thread{};
     std::atomic<u32> num_submits{};
     std::atomic<u32> num_commands{};
     std::atomic<bool> submit_done{};
-    std::atomic<bool> pending_ops{};
-    std::atomic<bool> run_watchdog{};
-    std::mutex process_mutex;
-    std::condition_variable_any process_cv;
+    std::mutex submit_mutex;
+    std::condition_variable_any submit_cv;
     std::queue<Common::UniqueFunction<void>> command_queue{};
     int curr_qid{-1};
 };
