@@ -36,7 +36,7 @@ constexpr size_t PAGE_BITS = 12;
 
 struct PageManager::Impl {
     struct PageState {
-        u8 num_watchers = 7; // there are 7 places where we can request watchers
+        u8 num_watchers{};
 
         Core::MemoryPermission Perm() const noexcept {
             return num_watchers == 0 ? Core::MemoryPermission::ReadWrite
