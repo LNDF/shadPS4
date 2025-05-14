@@ -48,7 +48,7 @@ struct PageManager::Impl {
             if constexpr (delta == 1) {
                 return ++num_watchers;
             } else {
-                ASSERT_MSG(num_watchers > 0, "Too many watchers");
+                ASSERT_MSG(num_watchers > 0, "Not enough watchers");
                 return --num_watchers;
             }
         }
@@ -185,7 +185,6 @@ struct PageManager::Impl {
     template <s32 delta>
     void UpdatePageWatchers(VAddr addr, u64 size) {
         std::scoped_lock lk(lock);
-        std::atomic_thread_fence(std::memory_order_acquire);
 
         size_t page = addr >> PAGE_BITS;
         auto perms = cached_pages[page].Perm();
@@ -201,7 +200,7 @@ struct PageManager::Impl {
 
         // Iterate requested pages
         const u64 page_end = Common::DivCeil(addr + size, PAGE_SIZE);
-        for (; page < page_end; ++page) {
+        for (; page != page_end; ++page) {
             PageState& state = cached_pages[page];
 
             // Apply the change to the page state
@@ -220,7 +219,6 @@ struct PageManager::Impl {
                 }
                 range_bytes += PAGE_SIZE;
             } else {
-                // do we need to do this here?
                 release_pending();
             }
         }
