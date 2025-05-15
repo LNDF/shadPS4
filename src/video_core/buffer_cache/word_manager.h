@@ -176,8 +176,8 @@ public:
             const u64 word = state_words[index] & mask;
             if constexpr (clear) {
                 if constexpr (type == Type::CPU) {
-                    untracked[index] &= ~mask;
                     UpdateProtection<true>(index, untracked[index], mask);
+                    untracked[index] &= ~mask;
                 }
                 state_words[index] &= ~mask;
             }
