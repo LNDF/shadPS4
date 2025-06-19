@@ -88,7 +88,7 @@ public:
         if (start_page >= NUM_REGION_PAGES || end_page <= start_page) {
             return;
         }
-        std::scoped_lock lk{lock};
+        std::unique_lock lk{lock};
         static_assert(type != Type::Writeable);
 
         RegionBits& bits = GetRegionBits<type>();
@@ -98,7 +98,7 @@ public:
             bits.UnsetRange(start_page, end_page);
         }
         if constexpr (type == Type::CPU) {
-            UpdateProtection<!enable>();
+            UpdateProtection<!enable>(std::move(lk));
         }
     }
 
@@ -119,7 +119,7 @@ public:
         if (start_page >= NUM_REGION_PAGES || end_page <= start_page) {
             return;
         }
-        std::scoped_lock lk{lock};
+        std::unique_lock lk{lock};
         static_assert(type != Type::Writeable);
 
         RegionBits& bits = GetRegionBits<type>();
@@ -137,7 +137,7 @@ public:
         if constexpr (clear) {
             bits.UnsetRange(start_page, end_page);
             if constexpr (type == Type::CPU) {
-                UpdateProtection<true>();
+                UpdateProtection<true>(std::move(lk));
             }
         }
     }
@@ -180,8 +180,8 @@ private:
      *
      * @tparam add_to_tracker True when the tracker should start tracking the new pages
      */
-    template <bool add_to_tracker>
-    void UpdateProtection() {
+    template <bool add_to_tracker, typename Lock>
+    void UpdateProtection(Lock&& lk) {
         RENDERER_TRACE;
         RegionBits mask = cpu ^ writeable;
 
@@ -190,6 +190,7 @@ private:
         }
 
         writeable = cpu;
+        lk.unlock();
         tracker->UpdatePageWatchersForRegion<add_to_tracker>(cpu_addr, mask);
     }
 
