@@ -980,8 +980,7 @@ void TextureCache::RunGarbageCollector() {
         }
         --num_deletions;
         auto& image = slot_images[image_id];
-        const bool download =
-            image.SafeToDownload() && False(image.flags & ImageFlagBits::MaybeReused);
+        const bool download = image.SafeToDownload();
         if (download && !pressured) {
             return false;
         }
