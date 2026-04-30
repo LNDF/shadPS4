@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <deque>
 #include <type_traits>
 
@@ -33,6 +34,7 @@ public:
     }
 
     void Touch(size_t id, TickType tick) {
+        ASSERT(id < item_pool.size() && std::find(free_items.begin(), free_items.end(), id) == free_items.end());
         auto& item = item_pool[id];
         if (item.tick >= tick) {
             return;
@@ -46,6 +48,7 @@ public:
     }
 
     void Free(size_t id) {
+        ASSERT(id < item_pool.size() && std::find(free_items.begin(), free_items.end(), id) == free_items.end());
         auto& item = item_pool[id];
         Detach(item);
         item.prev = nullptr;
