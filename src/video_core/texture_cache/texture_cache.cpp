@@ -986,9 +986,12 @@ void TextureCache::RunGarbageCollector() {
         }
         --num_deletions;
         auto& image = slot_images[image_id];
+        if (image.stencil_associated) {
+            return false;
+        }
         const bool download = image.SafeToDownload();
-        const bool should_skip = image.info.IsTiled() && image.stencil_associated;
-        if (should_skip && download) {
+        const bool tiled = image.info.IsTiled();
+        if (tiled && download) {
             // This is a workaround for now. We can't handle non-linear image downloads.
             return false;
         }
