@@ -707,9 +707,10 @@ ImageView& TextureCache::FindDepthTarget(ImageId image_id, const ImageDesc& desc
                 slot_images.insert(instance, scheduler, blit_helper, slot_image_views, info);
             RegisterImage(stencil_id);
         }
-        Image& image = slot_images[stencil_id];
-        TouchImage(image);
-        image.AssociateDepth(image_id);
+        Image& stencil_image = slot_images[stencil_id];
+        TouchImage(stencil_image);
+        stencil_image.AssociateDepth(image_id);
+        image.MarkStencilAssociated();
     }
 
     return image.FindView(desc.view_info, false);
@@ -986,8 +987,8 @@ void TextureCache::RunGarbageCollector() {
         --num_deletions;
         auto& image = slot_images[image_id];
         const bool download = image.SafeToDownload();
-        const bool tiled = image.info.IsTiled();
-        if (tiled && download) {
+        const bool should_skip = image.info.IsTiled() && image.stencil_associated;
+        if (should_skip && download) {
             // This is a workaround for now. We can't handle non-linear image downloads.
             return false;
         }
@@ -1052,6 +1053,12 @@ void TextureCache::DeleteImage(ImageId image_id) {
                 slot_image_views.erase(image_view_id);
             }
         }
+
+        if (image.depth_id) {
+            Image& depth_image = slot_images[image.depth_id];
+            depth_image.UnmarkStencilAssociated();
+        }
+
         slot_images.erase(image_id);
     });
 }
