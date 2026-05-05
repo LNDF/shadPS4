@@ -7,6 +7,8 @@
 #include <deque>
 #include <type_traits>
 
+#include "common/logging/classes.h"
+#include "common/logging/log.h"
 #include "common/types.h"
 
 namespace Common {
@@ -26,6 +28,7 @@ public:
 
     size_t Insert(ObjectType obj, TickType tick) {
         const auto new_id = Build();
+        LOG_CRITICAL(Render_Vulkan, "Insert {} tick {}", new_id, tick);
         auto& item = item_pool[new_id];
         item.obj = obj;
         item.tick = tick;
@@ -34,6 +37,7 @@ public:
     }
 
     void Touch(size_t id, TickType tick) {
+        LOG_CRITICAL(Render_Vulkan, "Touch {} tick {}", id, tick);
         ASSERT(id < item_pool.size() && std::find(free_items.begin(), free_items.end(), id) == free_items.end());
         auto& item = item_pool[id];
         if (item.tick >= tick) {
@@ -49,6 +53,7 @@ public:
 
     void Free(size_t id) {
         ASSERT(id < item_pool.size() && std::find(free_items.begin(), free_items.end(), id) == free_items.end());
+        LOG_CRITICAL(Render_Vulkan, "Free {}", id);
         auto& item = item_pool[id];
         Detach(item);
         item.prev = nullptr;
@@ -58,6 +63,7 @@ public:
 
     template <typename Func>
     void ForEachItemBelow(TickType tick, Func&& func) {
+        LOG_CRITICAL(Render_Vulkan, "ForEachItemBelow tick {} start", tick);
         static constexpr bool RETURNS_BOOL =
             std::is_same_v<std::invoke_result<Func, ObjectType>, bool>;
         Item* iterator = first_item;
@@ -68,6 +74,7 @@ public:
             Item* next = iterator->next;
             if constexpr (RETURNS_BOOL) {
                 if (func(iterator->obj)) {
+                    LOG_CRITICAL(Render_Vulkan, "ForEachItemBelow tick {} return", tick);
                     return;
                 }
             } else {
@@ -75,6 +82,7 @@ public:
             }
             iterator = next;
         }
+        LOG_CRITICAL(Render_Vulkan, "ForEachItemBelow tick {} end", tick);
     }
 
 private:
