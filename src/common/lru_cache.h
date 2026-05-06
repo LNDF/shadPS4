@@ -37,8 +37,8 @@ public:
     }
 
     void Touch(size_t id, TickType tick) {
-        LOG_CRITICAL(Render_Vulkan, "Touch {} tick {}", id, tick);
-        ASSERT(id < item_pool.size() && std::find(free_items.begin(), free_items.end(), id) == free_items.end());
+        // LOG_CRITICAL(Render_Vulkan, "Touch {} tick {}", id, tick);
+        ASSERT_MSG(id < item_pool.size() && std::find(free_items.begin(), free_items.end(), id) == free_items.end(), "Invalid touch of id {}", id);
         auto& item = item_pool[id];
         if (item.tick >= tick) {
             return;
@@ -52,7 +52,7 @@ public:
     }
 
     void Free(size_t id) {
-        ASSERT(id < item_pool.size() && std::find(free_items.begin(), free_items.end(), id) == free_items.end());
+        ASSERT_MSG(id < item_pool.size() && std::find(free_items.begin(), free_items.end(), id) == free_items.end(), "Invalid free of id {}", id);
         LOG_CRITICAL(Render_Vulkan, "Free {}", id);
         auto& item = item_pool[id];
         Detach(item);
@@ -69,6 +69,7 @@ public:
         Item* iterator = first_item;
         while (iterator) {
             if (static_cast<s64>(tick) - static_cast<s64>(iterator->tick) < 0) {
+                LOG_CRITICAL(Render_Vulkan, "ForEachItemBelow tick {} end", tick);
                 return;
             }
             Item* next = iterator->next;
