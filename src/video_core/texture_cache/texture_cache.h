@@ -295,6 +295,7 @@ private:
 
     void ReplaceImageDepthStencilAssociation(ImageId old_image_id, ImageId new_image_id) {
         Image& old_image = slot_images[old_image_id];
+        ASSERT(!old_image.depth_id || !old_image.stencil_id);
         if (auto stencil_id = old_image.stencil_id) {
             Image& stencil_image = slot_images[stencil_id];
             if (new_image_id) {
@@ -305,6 +306,16 @@ private:
                 stencil_image.DisassociateDepth();
             }
             old_image.DisassociateStencil();
+        } else if (auto depth_id = old_image.depth_id) {
+            Image& depth_image = slot_images[depth_id];
+            if (new_image_id) {
+                Image& new_image = slot_images[new_image_id];
+                new_image.AssociateDepth(depth_id);
+                depth_image.AssociateStencil(new_image_id);
+            } else {
+                depth_image.DisassociateStencil();
+            }
+            old_image.DisassociateDepth();
         }
     }
 
