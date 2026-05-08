@@ -278,6 +278,7 @@ ImageId TextureCache::ResolveDepthOverlap(const ImageInfo& requested_info, Bindi
         }
 
         // Free the cache image.
+        ReplaceImageDepthStencilAssociation(cache_image_id, new_image_id);
         FreeImage(cache_image_id);
         return new_image_id;
     }
@@ -302,6 +303,7 @@ std::tuple<ImageId, int, int> TextureCache::ResolveOverlap(const ImageInfo& imag
             lhs_block_size != rhs_block_size) {
             // Very likely this kind of overlap is caused by allocation from a pool.
             if (safe_to_delete) {
+                ReplaceImageDepthStencilAssociation(cache_image_id, {});
                 FreeImage(cache_image_id);
             }
             return {merged_image_id, -1, -1};
@@ -342,6 +344,7 @@ std::tuple<ImageId, int, int> TextureCache::ResolveOverlap(const ImageInfo& imag
         // Likely the address is reused for a image with a different tiling mode.
         if (image_info.tile_mode != cache_image.info.tile_mode) {
             if (safe_to_delete) {
+                ReplaceImageDepthStencilAssociation(cache_image_id, merged_image_id);
                 FreeImage(cache_image_id);
             }
             return {merged_image_id, -1, -1};
@@ -465,6 +468,7 @@ std::tuple<ImageId, int, int> TextureCache::ResolveOverlap(const ImageInfo& imag
 
         // Image isn't a subresource but a chance overlap.
         if (safe_to_delete) {
+            ReplaceImageDepthStencilAssociation(cache_image_id, {});
             FreeImage(cache_image_id);
         }
 
@@ -481,6 +485,7 @@ std::tuple<ImageId, int, int> TextureCache::ResolveOverlap(const ImageInfo& imag
                         GetImage(merged_image_id).binding.is_target = 1u;
                     }
 
+                    ReplaceImageDepthStencilAssociation(cache_image_id, merged_image_id);
                     FreeImage(cache_image_id);
                     return {merged_image_id, -1, -1};
                 }
@@ -489,6 +494,7 @@ std::tuple<ImageId, int, int> TextureCache::ResolveOverlap(const ImageInfo& imag
                 if (merged_image_id) {
                     auto& merged_image = slot_images[merged_image_id];
                     merged_image.CopyMip(cache_image, mip, slice);
+                    ReplaceImageDepthStencilAssociation(cache_image_id, merged_image_id);
                     FreeImage(cache_image_id);
                 }
             }
@@ -512,6 +518,8 @@ ImageId TextureCache::ExpandImage(const ImageInfo& info, ImageId image_id) {
     if (src_image.binding.is_bound || src_image.binding.is_target) {
         src_image.binding.needs_rebind = 1u;
     }
+
+    ReplaceImageDepthStencilAssociation(image_id, new_image_id);
 
     FreeImage(image_id);
 
@@ -710,7 +718,7 @@ ImageView& TextureCache::FindDepthTarget(ImageId image_id, const ImageDesc& desc
         Image& stencil_image = slot_images[stencil_id];
         TouchImage(stencil_image);
         stencil_image.AssociateDepth(image_id);
-        image.MarkStencilAssociated();
+        image.AssociateStencil(stencil_id);
     }
 
     return image.FindView(desc.view_info, false);
@@ -986,7 +994,7 @@ void TextureCache::RunGarbageCollector() {
         }
         --num_deletions;
         auto& image = slot_images[image_id];
-        if (image.stencil_associated) {
+        if (image.stencil_id) {
             return false;
         }
         const bool download = image.SafeToDownload();
@@ -1036,7 +1044,7 @@ void TextureCache::DeleteImage(ImageId image_id) {
     ASSERT_MSG(!image.IsTracked(), "Image was not untracked");
     ASSERT_MSG(False(image.flags & ImageFlagBits::Registered), "Image was not unregistered");
 
-    ASSERT_MSG(!image.stencil_associated, "Stencil associated image {}", image.info.guest_address);
+    ASSERT_MSG(!image.stencil_id, "Stencil associated image {}", image.info.guest_address);
 
     // Remove any registered meta areas.
     const auto& meta_info = image.info.meta_info;
@@ -1061,7 +1069,7 @@ void TextureCache::DeleteImage(ImageId image_id) {
 
         if (image.depth_id) {
             Image& depth_image = slot_images[image.depth_id];
-            depth_image.UnmarkStencilAssociated();
+            depth_image.DisassociateStencil();
         }
 
         slot_images.erase(image_id);
