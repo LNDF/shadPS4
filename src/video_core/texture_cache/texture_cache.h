@@ -293,21 +293,6 @@ private:
         DeleteImage(image_id);
     }
 
-    void ReplaceImageDepthStencilAssociation(ImageId old_image_id, ImageId new_image_id) {
-        Image& old_image = slot_images[old_image_id];
-        if (auto stencil_id = old_image.stencil_id) {
-            Image& stencil_image = slot_images[stencil_id];
-            if (new_image_id) {
-                Image& new_image = slot_images[new_image_id];
-                new_image.AssociateStencil(stencil_id);
-                stencil_image.AssociateDepth(new_image_id);
-            } else {
-                stencil_image.DisassociateDepth();
-            }
-            old_image.DisassociateStencil();
-        }
-    }
-
 private:
     const Vulkan::Instance& instance;
     Vulkan::Scheduler& scheduler;
