@@ -115,14 +115,6 @@ struct Image {
         depth_id = image_id;
     }
 
-    void MarkStencilAssociated() {
-        stencil_associated = true;
-    }
-
-    void UnmarkStencilAssociated() {
-        stencil_associated = false;
-    }
-
     ImageView& FindView(const ImageViewInfo& view_info, bool ensure_guest_samples = true);
 
     using Barriers = boost::container::small_vector<vk::ImageMemoryBarrier2, 32>;
@@ -157,7 +149,6 @@ public:
     VAddr track_addr = 0;
     VAddr track_addr_end = 0;
     ImageId depth_id{};
-    bool stencil_associated = false;
 
     // Resource state tracking
     vk::ImageUsageFlags usage_flags;

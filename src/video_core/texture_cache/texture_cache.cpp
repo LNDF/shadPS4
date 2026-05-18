@@ -707,10 +707,9 @@ ImageView& TextureCache::FindDepthTarget(ImageId image_id, const ImageDesc& desc
                 slot_images.insert(instance, scheduler, blit_helper, slot_image_views, info);
             RegisterImage(stencil_id);
         }
-        Image& stencil_image = slot_images[stencil_id];
-        TouchImage(stencil_image);
-        stencil_image.AssociateDepth(image_id);
-        image.MarkStencilAssociated();
+        Image& image = slot_images[stencil_id];
+        TouchImage(image);
+        image.AssociateDepth(image_id);
     }
 
     return image.FindView(desc.view_info, false);
@@ -1058,12 +1057,6 @@ void TextureCache::DeleteImage(ImageId image_id) {
                 slot_image_views.erase(image_view_id);
             }
         }
-
-        if (image.depth_id) {
-            Image& depth_image = slot_images[image.depth_id];
-            depth_image.UnmarkStencilAssociated();
-        }
-
         slot_images.erase(image_id);
     });
 }
