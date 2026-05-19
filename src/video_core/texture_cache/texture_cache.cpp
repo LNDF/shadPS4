@@ -707,9 +707,9 @@ ImageView& TextureCache::FindDepthTarget(ImageId image_id, const ImageDesc& desc
                 slot_images.insert(instance, scheduler, blit_helper, slot_image_views, info);
             RegisterImage(stencil_id);
         }
-        Image& image = slot_images[stencil_id];
-        TouchImage(image);
-        image.AssociateDepth(image_id);
+        Image& stencil_image = slot_images[stencil_id];
+        TouchImage(stencil_image);
+        stencil_image.AssociateDepth(image);
     }
 
     return image.FindView(desc.view_info, false);
@@ -985,9 +985,6 @@ void TextureCache::RunGarbageCollector() {
         }
         --num_deletions;
         auto& image = slot_images[image_id];
-        if (image.stencil_associated) {
-            return false;
-        }
         const bool download = image.SafeToDownload();
         const bool tiled = image.info.IsTiled();
         if (tiled && download) {
@@ -1034,8 +1031,6 @@ void TextureCache::DeleteImage(ImageId image_id) {
     Image& image = slot_images[image_id];
     ASSERT_MSG(!image.IsTracked(), "Image was not untracked");
     ASSERT_MSG(False(image.flags & ImageFlagBits::Registered), "Image was not unregistered");
-
-    ASSERT_MSG(!image.stencil_associated, "Stencil associated image {}", image.info.guest_address);
 
     // Remove any registered meta areas.
     const auto& meta_info = image.info.meta_info;
