@@ -707,11 +707,9 @@ ImageView& TextureCache::FindDepthTarget(ImageId image_id, const ImageDesc& desc
                 slot_images.insert(instance, scheduler, blit_helper, slot_image_views, info);
             RegisterImage(stencil_id);
         }
-        Image& stencil_image = slot_images[stencil_id];
-        TouchImage(stencil_image);
-        ASSERT(!image.stencil_id); // Should have only one stencil image associated to each depth image?
-        stencil_image.AssociateDepth(image_id);
-        image.AssociateStencil(stencil_id);
+        Image& image = slot_images[stencil_id];
+        TouchImage(image);
+        image.AssociateDepth(image_id);
     }
 
     return image.FindView(desc.view_info, false);
@@ -832,14 +830,6 @@ void TextureCache::UnregisterImage(ImageId image_id) {
     ASSERT_MSG(True(image.flags & ImageFlagBits::Registered),
                "Trying to unregister an already unregistered image");
     image.flags &= ~ImageFlagBits::Registered;
-    ASSERT(!image.depth_id || !image.stencil_id);
-    if (auto depth_id = image.depth_id) {
-        auto& depth_image = slot_images[depth_id];
-        depth_image.DisassociateStencil();
-    } else if (auto stencil_id = image.stencil_id) {
-        auto& stencil_image = slot_images[stencil_id];
-        stencil_image.DisassociateDepth();
-    }
     lru_cache.Free(image.lru_id);
     total_used_memory -= Common::AlignUp(image.info.guest_size, 1024);
     ForEachPage(image.info.guest_address, image.info.guest_size, [this, image_id](u64 page) {
@@ -995,6 +985,9 @@ void TextureCache::RunGarbageCollector() {
         }
         --num_deletions;
         auto& image = slot_images[image_id];
+        if (image.stencil_associated) {
+            return false;
+        }
         const bool download = image.SafeToDownload();
         const bool tiled = image.info.IsTiled();
         if (tiled && download) {
@@ -1042,7 +1035,7 @@ void TextureCache::DeleteImage(ImageId image_id) {
     ASSERT_MSG(!image.IsTracked(), "Image was not untracked");
     ASSERT_MSG(False(image.flags & ImageFlagBits::Registered), "Image was not unregistered");
 
-    ASSERT_MSG(!image.stencil_id, "Stencil associated image {}", image.info.guest_address);
+    ASSERT_MSG(!image.stencil_associated, "Stencil associated image {}", image.info.guest_address);
 
     // Remove any registered meta areas.
     const auto& meta_info = image.info.meta_info;
