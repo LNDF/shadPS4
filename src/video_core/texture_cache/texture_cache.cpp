@@ -95,9 +95,9 @@ void TextureCache::DownloadImageMemory(ImageId image_id, DownloadMemoryFlags fla
     u32 copy_size = 0;
     boost::container::small_vector<vk::BufferImageCopy, 8> buffer_copies;
     for (u32 mip = 0; mip < image_mips; ++mip) {
-        const auto& width = std::max(image.info.size.width >> mip, 1u);
-        const auto& height = std::max(image.info.size.height >> mip, 1u);
-        const auto& depth =
+        const u32 width = std::max(image.info.size.width >> mip, 1u);
+        const u32 height = std::max(image.info.size.height >> mip, 1u);
+        const u32 depth =
             image.info.props.is_volume ? std::max(image.info.size.depth >> mip, 1u) : 1u;
         const auto [mip_size, mip_pitch, mip_height, mip_offset] = image.info.mips_layout[mip];
         const u32 extent_width = mip_pitch ? std::min<u32>(mip_pitch, width) : width;
